@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import HomeScreen from './HomeScreen';
 import CoursesScreen from './CoursesScreen';
 
