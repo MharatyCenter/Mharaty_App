@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { supabase } from './supabaseClient';
 
 interface Registration {
@@ -72,7 +72,7 @@ export default function RegistrationsList({ onBack }: RegistrationsListProps) {
         <p style={{ textAlign: 'center', color: '#666', fontSize: '16px', marginTop: '50px' }}>جاري تحميل قائمة المسجلين... 🔄</p>
       ) : Object.keys(groupedByCourse).length === 0 ? (
         <div style={{ textAlign: 'center', marginTop: '80px', color: '#666' }}>
-          <p style={{ fontSize: '16px' }}>لا توجد أي تسجيلا للكورسات حتى الآن.</p>
+          <p style={{ fontSize: '16px' }}>لا توجد أي تسجيلات للكورسات حتى الآن.</p>
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '25px' }}>
