@@ -101,7 +101,9 @@ export default function RegistrationsList({ onBack }: RegistrationsListProps) {
                   <tbody>
                     {students.map((student, index) => (
                       <tr key={student.id} style={{ borderBottom: '1px solid #eee', backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa', fontSize: '14px' }}>
-                        <td style={{ padding: '12px 15px', fontWeight: 'bold', color: '#334155' }}>{student.student_name}</td>
+                        <td style={{ padding: '12px 15px', fontWeight: 'bold', color: '#334155' }}>
+                          {student.student_name || 'بدون اسم'}
+                        </td>
                         <td style={{ padding: '12px 15px', color: '#475569' }}>{student.email}</td>
                         <td style={{ padding: '12px 15px', color: '#475569' }}>{student.phone}</td>
                         <td style={{ padding: '12px 15px', color: '#666', fontSize: '13px' }}>
