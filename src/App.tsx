@@ -2,7 +2,7 @@ import { useState } from 'react';
 import HomeScreen from './HomeScreen';
 import CoursesScreen from './CoursesScreen';
 import TrainerPage from './Trainer';
-import AdminDashboardScreen from './AdminDashboardScreen'; // 👈 استيراد لوحة التحكم الشاملة
+import AdminDashboardScreen from './AdminDashboardScreen';
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<'home' | 'courses' | 'trainer' | 'admin'>('home');
@@ -24,7 +24,7 @@ export default function App() {
 
   const handleAdminLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    if (adminPassword === '1234') { // 👈 كلمة المرور السرية
+    if (adminPassword === '1234') { 
       setIsAdminLoggedIn(true);
       setShowLoginModal(false);
       setAdminPassword('');
@@ -49,7 +49,6 @@ export default function App() {
     );
   }
 
-  // إذا تم تسجيل الدخول كـ مشرف، تفتح لوحة التحكم الشاملة
   if (currentScreen === 'admin' && isAdminLoggedIn) {
     return (
       <AdminDashboardScreen 
