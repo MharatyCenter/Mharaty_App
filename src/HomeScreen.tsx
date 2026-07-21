@@ -18,9 +18,11 @@ interface Course {
 
 interface HomeScreenProps {
   onNavigateToCategory: (category: 'digital' | 'professional' | 'life') => void;
+  onNavigateToTrainer?: () => void;
+  onOpenAdminLogin?: () => void; // 👈 إضافة خاصية فتح نافذة دخول المشرفين
 }
 
-function HomeScreen({ onNavigateToCategory }: HomeScreenProps) {
+function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogin }: HomeScreenProps) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeCourses, setActiveCourses] = useState<Course[]>([]);
   const [planCourses, setPlanCourses] = useState<Course[]>([]);
@@ -68,17 +70,41 @@ function HomeScreen({ onNavigateToCategory }: HomeScreenProps) {
         </div>
       </header>
 
-      {/* القائمة الجانبية */}
+      {/* القائمة الجانبية (مفعلة بالكامل) */}
       <div style={{
         position: 'absolute', top: '65px', left: '15px', backgroundColor: '#2d3d52', borderRadius: '8px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '15px', display: isMenuOpen ? 'flex' : 'none',
         flexDirection: 'column', gap: '12px', zIndex: 100, minWidth: '160px', border: '1px solid #4a5d78'
       }}>
-        <span onClick={() => setIsMenuOpen(false)} style={{ cursor: 'pointer', fontWeight: 'bold', color: '#b967ff', fontSize: '14px' }}>الرئيسية</span>
-        <span style={{ cursor: 'pointer', color: '#ccc', fontSize: '14px' }}>المدربين</span>
+        <span onClick={() => { setIsMenuOpen(false); }} style={{ cursor: 'pointer', fontWeight: 'bold', color: '#b967ff', fontSize: '14px' }}>الرئيسية</span>
+        
+        {/* رابط المدربين المفعل */}
+        <span 
+          onClick={() => { 
+            setIsMenuOpen(false); 
+            if (onNavigateToTrainer) onNavigateToTrainer(); 
+          }} 
+          style={{ cursor: 'pointer', color: '#ccc', fontSize: '14px' }}
+        >
+          المدربين
+        </span>
+
         <span style={{ cursor: 'pointer', color: '#ccc', fontSize: '14px' }}>التواصل معنا</span>
+
         <div style={{ height: '1px', backgroundColor: '#4a5d78', margin: '5px 0' }}></div>
-        <span style={{ cursor: 'pointer', color: '#10b981', fontWeight: 'bold', fontSize: '14px' }}>تسجيل الدخول</span>
+
+        {/* 🔐 رابط دخول المشرفين الجديد داخل القائمة */}
+        <span 
+          onClick={() => {
+            setIsMenuOpen(false);
+            if (onOpenAdminLogin) onOpenAdminLogin();
+          }}
+          style={{ cursor: 'pointer', color: '#10b981', fontWeight: 'bold', fontSize: '14px' }}
+        >
+          دخول المشرفين
+        </span>
+
+        <span style={{ cursor: 'pointer', color: '#ccc', fontSize: '14px' }}>تسجيل الدخول</span>
       </div>
 
       <main style={{ marginTop: '20px' }}>
@@ -116,7 +142,7 @@ function HomeScreen({ onNavigateToCategory }: HomeScreenProps) {
 
         </div>
 
-        {/* 2. الكورسات النشطة حالياً (العنوان وبجواره زر الطي والإظهار من اليمين) */}
+        {/* 2. الكورسات النشطة حالياً */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #10b981', paddingBottom: '5px', marginBottom: '15px' }}>
           <h2 style={{ color: '#2d3d52', fontSize: '18px', margin: 0 }}>⚡ الكورسات النشطة حالياً</h2>
           <button 
@@ -148,7 +174,7 @@ function HomeScreen({ onNavigateToCategory }: HomeScreenProps) {
           )
         )}
 
-        {/* 3. خطة الربع الحالي (العنوان وبجواره زر الطي والإظهار من اليمين) */}
+        {/* 3. خطة الربع الحالي (3 أشهر) */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #8b44db', paddingBottom: '5px', marginBottom: '15px' }}>
           <h2 style={{ color: '#2d3d52', fontSize: '18px', margin: 0 }}>📅 خطة الربع الحالي (3 أشهر)</h2>
           <button 
