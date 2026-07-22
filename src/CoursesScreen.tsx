@@ -8,7 +8,7 @@ interface Course {
   category: 'digital' | 'professional' | 'life';
   duration: string;
   instructor: string;
-  price?: string;
+  level: string;
 }
 
 interface CoursesScreenProps {
@@ -53,34 +53,16 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
 
       if (error) {
         console.error('خطأ في جلب الكورسات:', error.message);
-        setCourses(getDefaultCourses(currentCategory));
+        setCourses([]);
       } else {
-        setCourses(data && data.length > 0 ? data : getDefaultCourses(currentCategory));
+        setCourses(data || []);
       }
     } catch (err) {
       console.error('خطأ غير متوقع:', err);
-      setCourses(getDefaultCourses(currentCategory));
+      setCourses([]);
     } finally {
       setLoading(false);
     }
-  };
-
-  const getDefaultCourses = (category: 'digital' | 'professional' | 'life'): Course[] => {
-    const allCourses: Record<'digital' | 'professional' | 'life', Course[]> = {
-      digital: [
-        { id: 1, title: 'أساسيات التسويق الرقمي', description: 'تعلم كيف تبدأ في عالم التسويق الإلكتروني وإدارة الحملات الإعلانية بكفاءة عالية، وكيفية استهداف الجمهور الصحيح لتحقيق أفضل النتائج التجارية.', category: 'digital', duration: '4 أسابيع', instructor: 'أحمد علي', price: 'مجاني' },
-        { id: 2, title: 'التجارة الإلكترونية وبناء المتاجر', description: 'دورة شاملة لإنشاء وإدارة متجرك الإلكتروني من الصفر حتى احتراف البيع وتحقيق مبيعات مستدامة.', category: 'digital', duration: '6 أسابيع', instructor: 'محمد محمود', price: 'مجاني' },
-      ],
-      professional: [
-        { id: 3, title: 'مهارات القيادة وإدارة الإدارات', description: 'اكتسب مهارات القائد الناجح في قيادة فرق العمل، توزيع المهام، وحل المشكلات بحكمة واحترافية.', category: 'professional', duration: '3 أسابيع', instructor: 'سارة خالد', price: 'مجاني' },
-        { id: 4, title: 'إدارة الوقت واكتساب الإنتاجية', description: 'طرق عملية ومجربة لتنظيم المهام اليومية، التخلص من التسويف، ومضاعفة إنتاجيتك في العمل والحياة.', category: 'professional', duration: 'أسبوعان', instructor: 'محمود حسن', price: 'مجاني' },
-      ],
-      life: [
-        { id: 5, title: 'فن التواصل الفعال ولغة الجسد', description: 'كيف تؤثر في الآخرين، تبني علاقات اجتماعية ومهنية قوية، وتقرأ لغة الجسد لمن حولك بدقة.', category: 'life', duration: 'أسبوعان', instructor: 'منى أحمد', price: 'مجاني' },
-        { id: 6, title: 'التفكير الإيجابي وإدارة الضغوط', description: 'تقنيات نفسية وعملية للتخلص من التوتر، مواجهة ضغوط الحياة اليومية، ورفع جودة حياتك الشخصية.', category: 'life', duration: '3 أسابيع', instructor: 'خالد عبد الله', price: 'مجاني' },
-      ]
-    };
-    return allCourses[category] || [];
   };
 
   const handleOpenRegister = (course: Course, e?: React.MouseEvent) => {
@@ -127,7 +109,7 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
     }
   };
 
-  // 1. شاشة تفاصيل الكورس (تظهر عند الضغط على اسم الكورس)
+  // 1. شاشة تفاصيل الكورس
   if (selectedCourseDetails) {
     return (
       <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
@@ -144,7 +126,7 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
         <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '10px', boxShadow: '0 3px 10px rgba(0,0,0,0.06)' }}>
           <div style={{ display: 'flex', gap: '15px', marginBottom: '20px', flexWrap: 'wrap' }}>
             <span style={{ backgroundColor: '#f3e8ff', color: '#8b44db', padding: '6px 15px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>⏳ المدة: {selectedCourseDetails.duration || 'غير محدد'}</span>
-            <span style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '6px 15px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>💰 السعر: {selectedCourseDetails.price || 'مجاني'}</span>
+            <span style={{ backgroundColor: '#e2e8f0', color: '#334155', padding: '6px 15px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>📊 المستوى: {selectedCourseDetails.level || 'غير محدد'}</span>
           </div>
 
           <h1 style={{ color: '#2d3d52', marginTop: 0, marginBottom: '15px' }}>{selectedCourseDetails.title}</h1>
@@ -196,7 +178,7 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
                 <th style={{ padding: '12px 15px' }}>اسم الكورس</th>
                 <th style={{ padding: '12px 15px' }}>المدرب</th>
                 <th style={{ padding: '12px 15px' }}>المدة</th>
-                <th style={{ padding: '12px 15px' }}>السعر</th>
+                <th style={{ padding: '12px 15px' }}>المستوى</th>
                 <th style={{ padding: '12px 15px', textAlign: 'center' }}>الإجراء</th>
               </tr>
             </thead>
@@ -214,7 +196,7 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
                   </td>
                   <td style={{ padding: '14px 15px', color: '#475569' }}>{course.instructor || 'غير محدد'}</td>
                   <td style={{ padding: '14px 15px', color: '#666' }}>{course.duration || 'غير محدد'}</td>
-                  <td style={{ padding: '14px 15px', color: '#10b981', fontWeight: 'bold' }}>{course.price || 'مجاني'}</td>
+                  <td style={{ padding: '14px 15px', color: '#0284c7', fontWeight: 'bold' }}>{course.level || 'غير محدد'}</td>
                   <td style={{ padding: '14px 15px', textAlign: 'center' }}>
                     <button 
                       onClick={(e) => handleOpenRegister(course, e)}
