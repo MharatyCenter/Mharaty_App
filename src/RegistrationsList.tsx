@@ -26,13 +26,15 @@ export default function RegistrationsList({ onBack }: RegistrationsListProps) {
     setLoading(true);
     try {
       const { data, error } = await supabase
-        .schema('mharaty')
         .from('course_registrations')
-        .select('*')
-        .order('created_at', { ascending: false });
+        .select('*');
+
+      // طباعة كاملة في الـ Console للتشخيص المحلي الدقيق
+      console.log('نتيجة جلب بيانات التسجيلات:', { data, error });
 
       if (error) {
-        console.error('خطأ في جلب بيانات المسجلين:', error.message);
+        console.error('خطأ من قاعدة البيانات:', error.message);
+        alert('خطأ من قاعدة البيانات: ' + error.message);
       } else {
         setRegistrations(data || []);
       }
@@ -102,7 +104,7 @@ export default function RegistrationsList({ onBack }: RegistrationsListProps) {
                     {students.map((student, index) => (
                       <tr key={student.id} style={{ borderBottom: '1px solid #eee', backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa', fontSize: '14px' }}>
                         <td style={{ padding: '12px 15px', fontWeight: 'bold', color: '#334155' }}>
-                          {student.student_name || 'بدون اسم'}
+                          {student.student_name || student.name || 'بدون اسم'}
                         </td>
                         <td style={{ padding: '12px 15px', color: '#475569' }}>{student.email}</td>
                         <td style={{ padding: '12px 15px', color: '#475569' }}>{student.phone}</td>

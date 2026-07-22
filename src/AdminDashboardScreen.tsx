@@ -17,7 +17,7 @@ interface Course {
 
 interface Registration {
   id: number;
-  full_name: string;
+  student_name: string;
   email: string;
   phone: string;
   course_title: string;
@@ -37,16 +37,18 @@ interface AdminDashboardProps {
 }
 
 export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
-  // إضافة تبويب 'trainers' لإدارة المدربين
   const [activeTab, setActiveTab] = useState<'courses' | 'registrations' | 'trainers'>('courses');
   
+  // رسائل التنبيه الداخلية
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
   // حالات الكورسات
   const [courses, setCourses] = useState<Course[]>([]);
   const [loadingCourses, setLoadingCourses] = useState(true);
   const [showCourseForm, setShowCourseForm] = useState(false);
   const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
   
-  // حقول نموذج الكورس
   const [title, setTitle] = useState('');
   const [instructor, setInstructor] = useState('');
   const [duration, setDuration] = useState('');
@@ -67,8 +69,8 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   const [loadingTrainers, setLoadingTrainers] = useState(false);
   const [showTrainerForm, setShowTrainerForm] = useState(false);
   const [editingTrainerId, setEditingTrainerId] = useState<number | null>(null);
+  const [isSavingTrainer, setIsSavingTrainer] = useState(false);
   
-  // حقول نموذج المدرب
   const [trainerName, setTrainerName] = useState('');
   const [trainerSpecialty, setTrainerSpecialty] = useState('');
   const [trainerBio, setTrainerBio] = useState('');
@@ -80,6 +82,13 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
     fetchTrainers();
   }, []);
 
+  const showNotification = (text: string, type: 'success' | 'error') => {
+    setStatusMessage({ text, type });
+    setTimeout(() => {
+      setStatusMessage(null);
+    }, 4000);
+  };
+
   const fetchCourses = async () => {
     setLoadingCourses(true);
     const { data, error } = await supabase.from('courses').select('*').order('id', { ascending: false });
@@ -90,40 +99,55 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   const fetchRegistrations = async () => {
     setLoadingRegs(true);
     const { data, error } = await supabase.from('course_registrations').select('*').order('created_at', { ascending: false });
-    if (!error) setRegistrations(data || []);
+    if (!error) {
+      setRegistrations(data || []);
+    }
     setLoadingRegs(false);
   };
 
   const fetchTrainers = async () => {
     setLoadingTrainers(true);
     const { data, error } = await supabase.from('trainers').select('*').order('id', { ascending: false });
-    if (!error) setTrainers(data || []);
+    if (!error) {
+      setTrainers(data || []);
+      if (data && data.length > 0 && !instructor) {
+        setInstructor(data[0].name);
+      }
+    }
     setLoadingTrainers(false);
   };
 
-  // دوال حفظ وتعديل الكورسات
   const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSavingCourse(true);
     const courseData = { title, instructor, duration, level, description, category, is_active: isActive, month_1: month1, month_2: month2, month_3: month3 };
 
     if (editingCourseId) {
       const { error } = await supabase.from('courses').update(courseData).eq('id', editingCourseId);
-      if (error) alert('خطأ في التحديث: ' + error.message);
-      else alert('✅ تم تحديث الكورس بنجاح!');
+      if (error) {
+        showNotification('خطأ في التحديث: ' + error.message, 'error');
+      } else {
+        showNotification('✅ تم تحديث الكورس بنجاح!', 'success');
+        resetCourseForm();
+        fetchCourses();
+      }
     } else {
       const { error } = await supabase.from('courses').insert([courseData]);
-      if (error) alert('خطأ في الإضافة: ' + error.message);
-      else alert('✅ تم إضافة الكورس بنجاح!');
+      if (error) {
+        showNotification('خطأ في الإضافة: ' + error.message, 'error');
+      } else {
+        showNotification('✅ تم إضافة الكورس بنجاح!', 'success');
+        resetCourseForm();
+        fetchCourses();
+      }
     }
-
-    resetCourseForm();
-    fetchCourses();
+    setIsSavingCourse(false);
   };
 
   const handleEditCourseClick = (course: Course) => {
     setEditingCourseId(course.id);
     setTitle(course.title);
-    setInstructor(course.instructor);
+    setInstructor(course.instructor || (trainers.length > 0 ? trainers[0].name : ''));
     setDuration(course.duration);
     setLevel(course.level);
     setDescription(course.description);
@@ -136,37 +160,55 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   };
 
   const handleDeleteCourse = async (id: number) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا الكورس؟')) {
-      const { error } = await supabase.from('courses').delete().eq('id', id);
-      if (!error) fetchCourses();
+    const { error } = await supabase.from('courses').delete().eq('id', id);
+    if (!error) {
+      showNotification('🗑️ تم حذف الكورس بنجاح', 'success');
+      fetchCourses();
+    } else {
+      showNotification('خطأ في الحذف: ' + error.message, 'error');
     }
   };
 
   const resetCourseForm = () => {
     setEditingCourseId(null);
-    setTitle(''); setInstructor(''); setDuration(''); setLevel('مبتدئ');
-    setDescription(''); setCategory('digital'); setIsActive(false);
-    setMonth1(false); setMonth2(false); setMonth3(false);
+    setTitle(''); 
+    setInstructor(trainers.length > 0 ? trainers[0].name : ''); 
+    setDuration(''); 
+    setLevel('مبتدئ');
+    setDescription(''); 
+    setCategory('digital'); 
+    setIsActive(false);
+    setMonth1(false); 
+    setMonth2(false); 
+    setMonth3(false);
     setShowCourseForm(false);
   };
 
-  // دوال حفظ وتعديل المدربين
   const handleSaveTrainer = async (e: React.FormEvent) => {
     e.preventDefault();
+    setIsSavingTrainer(true);
     const trainerData = { name: trainerName, specialty: trainerSpecialty, bio: trainerBio, image_url: trainerImage };
 
     if (editingTrainerId) {
       const { error } = await supabase.from('trainers').update(trainerData).eq('id', editingTrainerId);
-      if (error) alert('خطأ في التحديث: ' + error.message);
-      else alert('✅ تم تحديث بيانات المدرب بنجاح!');
+      if (error) {
+        showNotification('خطأ في التحديث: ' + error.message, 'error');
+      } else {
+        showNotification('✅ تم تحديث بيانات المدرب بنجاح!', 'success');
+        resetTrainerForm();
+        fetchTrainers();
+      }
     } else {
       const { error } = await supabase.from('trainers').insert([trainerData]);
-      if (error) alert('خطأ في الإضافة: ' + error.message);
-      else alert('✅ تم إضافة المدرب بنجاح!');
+      if (error) {
+        showNotification('خطأ في الإضافة: ' + error.message, 'error');
+      } else {
+        showNotification('✅ تم إضافة المدرب بنجاح!', 'success');
+        resetTrainerForm();
+        fetchTrainers();
+      }
     }
-
-    resetTrainerForm();
-    fetchTrainers();
+    setIsSavingTrainer(false);
   };
 
   const handleEditTrainerClick = (trainer: Trainer) => {
@@ -179,9 +221,12 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   };
 
   const handleDeleteTrainer = async (id: number) => {
-    if (window.confirm('هل أنت متأكد من حذف هذا المدرب؟')) {
-      const { error } = await supabase.from('trainers').delete().eq('id', id);
-      if (!error) fetchTrainers();
+    const { error } = await supabase.from('trainers').delete().eq('id', id);
+    if (!error) {
+      showNotification('🗑️ تم حذف المدرب بنجاح', 'success');
+      fetchTrainers();
+    } else {
+      showNotification('خطأ في الحذف: ' + error.message, 'error');
     }
   };
 
@@ -202,7 +247,14 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         </button>
       </div>
 
-      {/* أزرار التنقل بين الأقسام (Tabs) */}
+      {/* منطقة الإشعارات الداخلية */}
+      {statusMessage && (
+        <div style={{ padding: '12px 20px', marginBottom: '20px', borderRadius: '8px', backgroundColor: statusMessage.type === 'success' ? '#dcfce7' : '#fee2e2', color: statusMessage.type === 'success' ? '#166534' : '#991b1b', fontWeight: 'bold', border: `1px solid ${statusMessage.type === 'success' ? '#86efac' : '#fca5a5'}` }}>
+          {statusMessage.text}
+        </div>
+      )}
+
+      {/* أزرار التنقل بين الأقسام */}
       <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <button 
           onClick={() => setActiveTab('courses')}
@@ -229,7 +281,11 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ margin: 0, color: '#2d3d52' }}>قائمة الكورسات الحالية</h3>
-            <button onClick={() => { resetCourseForm(); setShowCourseForm(true); }} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            <button 
+              onClick={() => { resetCourseForm(); setShowCourseForm(true); }} 
+              disabled={showCourseForm}
+              style={{ backgroundColor: showCourseForm ? '#94a3b8' : '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: showCourseForm ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+            >
               ➕ إضافة كورس جديد
             </button>
           </div>
@@ -239,7 +295,14 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
               <h4 style={{ marginTop: 0, color: '#2d3d52' }}>{editingCourseId ? '✏️ تعديل بيانات الكورس' : '✨ إضافة كورس جديد'}</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '15px' }}>
                 <input type="text" placeholder="عنوان الكورس" value={title} onChange={e => setTitle(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                <input type="text" placeholder="اسم المدرب" value={instructor} onChange={e => setInstructor(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                
+                <select value={instructor} onChange={e => setInstructor(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
+                  <option value="" disabled>اختر اسم المدرب</option>
+                  {trainers.map(t => (
+                    <option key={t.id} value={t.name}>{t.name} ({t.specialty})</option>
+                  ))}
+                </select>
+
                 <input type="text" placeholder="المدة (مثال: 4 أسابيع)" value={duration} onChange={e => setDuration(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 <select value={category} onChange={e => setCategory(e.target.value as any)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }}>
                   <option value="digital">مهارات رقمية</option>
@@ -255,8 +318,10 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
                 <label><input type="checkbox" checked={month3} onChange={e => setMonth3(e.target.checked)} /> 📅 الشهر الثالث</label>
               </div>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" style={{ backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>حفظ</button>
-                <button type="button" onClick={resetCourseForm} style={{ backgroundColor: '#94a3b8', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>إلغاء</button>
+                <button type="submit" disabled={isSavingCourse} style={{ backgroundColor: isSavingCourse ? '#94a3b8' : '#2d3d52', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', cursor: isSavingCourse ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                  {isSavingCourse ? 'جاري الحفظ...' : 'حفظ'}
+                </button>
+                <button type="button" disabled={isSavingCourse} onClick={resetCourseForm} style={{ backgroundColor: '#94a3b8', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>إلغاء</button>
               </div>
             </form>
           )}
@@ -316,11 +381,13 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
                 <tbody>
                   {registrations.map(r => (
                     <tr key={r.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{r.full_name}</td>
-                      <td style={{ padding: '10px' }}>{r.email}</td>
-                      <td style={{ padding: '10px' }}>{r.phone}</td>
-                      <td style={{ padding: '10px', color: '#8b44db', fontWeight: 'bold' }}>{r.course_title}</td>
-                      <td style={{ padding: '10px', fontSize: '12px', color: '#64748b' }}>{new Date(r.created_at).toLocaleString('ar-EG')}</td>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{r.student_name || 'غير متوفر'}</td>
+                      <td style={{ padding: '10px' }}>{r.email || '-'}</td>
+                      <td style={{ padding: '10px' }}>{r.phone || '-'}</td>
+                      <td style={{ padding: '10px', color: '#8b44db', fontWeight: 'bold' }}>{r.course_title || '-'}</td>
+                      <td style={{ padding: '10px', fontSize: '12px', color: '#64748b' }}>
+                        {r.created_at ? new Date(r.created_at).toLocaleString('ar-EG') : '-'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -330,12 +397,16 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         </div>
       )}
 
-      {/* 3. قسم إدارة المدربين الجديد */}
+      {/* 3. قسم إدارة المدربين */}
       {activeTab === 'trainers' && (
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
             <h3 style={{ margin: 0, color: '#2d3d52' }}>قائمة المدربين</h3>
-            <button onClick={() => { resetTrainerForm(); setShowTrainerForm(true); }} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            <button 
+              onClick={() => { resetTrainerForm(); setShowTrainerForm(true); }} 
+              disabled={showTrainerForm}
+              style={{ backgroundColor: showTrainerForm ? '#94a3b8' : '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: showTrainerForm ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}
+            >
               ➕ إضافة مدرب جديد
             </button>
           </div>
@@ -350,8 +421,10 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
               </div>
               <textarea placeholder="نبذة تعريفية عن المدرب..." value={trainerBio} onChange={e => setTrainerBio(e.target.value)} rows={3} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <button type="submit" style={{ backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>حفظ</button>
-                <button type="button" onClick={resetTrainerForm} style={{ backgroundColor: '#94a3b8', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>إلغاء</button>
+                <button type="submit" disabled={isSavingTrainer} style={{ backgroundColor: isSavingTrainer ? '#94a3b8' : '#2d3d52', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', cursor: isSavingTrainer ? 'not-allowed' : 'pointer', fontWeight: 'bold' }}>
+                  {isSavingTrainer ? 'جاري الحفظ...' : 'حفظ'}
+                </button>
+                <button type="button" disabled={isSavingTrainer} onClick={resetTrainerForm} style={{ backgroundColor: '#94a3b8', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>إلغاء</button>
               </div>
             </form>
           )}
