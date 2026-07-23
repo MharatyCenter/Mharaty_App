@@ -16,10 +16,23 @@ interface Course {
   month_3: boolean;
 }
 
+interface ContactInfo {
+  phone?: string;
+  whatsapp?: string;
+  facebook?: string;
+  youtube?: string;
+  instagram?: string;
+  telegram?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  working_hours?: string;
+}
+
 interface HomeScreenProps {
   onNavigateToCategory: (category: 'digital' | 'professional' | 'life') => void;
   onNavigateToTrainer?: () => void;
-  onOpenAdminLogin?: () => void; // 👈 إضافة خاصية فتح نافذة دخول المشرفين
+  onOpenAdminLogin?: () => void;
 }
 
 function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogin }: HomeScreenProps) {
@@ -31,8 +44,13 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
   const [isReadyCoursesOpen, setIsReadyCoursesOpen] = useState(true);
   const [isQuarterPlanOpen, setIsQuarterPlanOpen] = useState(true);
 
+  // حالة نافذة التواصل معنا
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
+
   useEffect(() => {
     fetchData();
+    fetchContactInfo();
   }, []);
 
   const fetchData = async () => {
@@ -50,6 +68,22 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
       }
     } catch (err) {
       console.error('خطأ غير متوقع:', err);
+    }
+  };
+
+  const fetchContactInfo = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('contact_info')
+        .select('*')
+        .eq('id', 1)
+        .single();
+
+      if (!error && data) {
+        setContactInfo(data);
+      }
+    } catch (err) {
+      console.error('خطأ في جلب بيانات التواصل:', err);
     }
   };
 
@@ -89,7 +123,16 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
           المدربين
         </span>
 
-        <span style={{ cursor: 'pointer', color: '#ccc', fontSize: '14px' }}>التواصل معنا</span>
+        {/* رابط التواصل معنا المفعل */}
+        <span 
+          onClick={() => { 
+            setIsMenuOpen(false); 
+            setShowContactModal(true); 
+          }} 
+          style={{ cursor: 'pointer', color: '#ccc', fontSize: '14px' }}
+        >
+          التواصل معنا
+        </span>
 
         <div style={{ height: '1px', backgroundColor: '#4a5d78', margin: '5px 0' }}></div>
 
@@ -243,6 +286,42 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
         )}
 
       </main>
+
+      {/* نافذة التواصل معنا المنبثقة */}
+      {showContactModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
+          <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '2px solid #2d3d52', direction: 'rtl', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
+            <h3 style={{ marginTop: 0, color: '#2d3d52', marginBottom: '15px', borderBottom: '2px solid #b967ff', paddingBottom: '8px' }}>📞 تواصل معنا</h3>
+            
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px', color: '#334155', marginBottom: '20px' }}>
+              {contactInfo?.phone && <p style={{ margin: 0 }}><strong>الهاتف:</strong> {contactInfo.phone}</p>}
+              {contactInfo?.whatsapp && <p style={{ margin: 0 }}><strong>واتساب:</strong> {contactInfo.whatsapp}</p>}
+              {contactInfo?.email && <p style={{ margin: 0 }}><strong>البريد الإلكتروني:</strong> {contactInfo.email}</p>}
+              {contactInfo?.address && <p style={{ margin: 0 }}><strong>العنوان:</strong> {contactInfo.address}</p>}
+              {contactInfo?.working_hours && <p style={{ margin: 0 }}><strong>ساعات العمل:</strong> {contactInfo.working_hours}</p>}
+
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
+                {contactInfo?.facebook && <a href={contactInfo.facebook} target="_blank" rel="noreferrer" style={{ color: '#1877f2', textDecoration: 'none', fontWeight: 'bold' }}>فيسبوك</a>}
+                {contactInfo?.youtube && <a href={contactInfo.youtube} target="_blank" rel="noreferrer" style={{ color: '#ff0000', textDecoration: 'none', fontWeight: 'bold' }}>يوتيوب</a>}
+                {contactInfo?.instagram && <a href={contactInfo.instagram} target="_blank" rel="noreferrer" style={{ color: '#e1306c', textDecoration: 'none', fontWeight: 'bold' }}>إنشتاغرام</a>}
+                {contactInfo?.telegram && <a href={contactInfo.telegram} target="_blank" rel="noreferrer" style={{ color: '#0088cc', textDecoration: 'none', fontWeight: 'bold' }}>تيليجرام</a>}
+              </div>
+
+              {!contactInfo?.phone && !contactInfo?.whatsapp && !contactInfo?.email && (
+                <p style={{ color: '#64748b', textAlign: 'center', margin: '10px 0' }}>لا توجد بيانات تواصل متاحة حالياً.</p>
+              )}
+            </div>
+
+            <button 
+              onClick={() => setShowContactModal(false)} 
+              style={{ width: '100%', backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              إغلاق
+            </button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }

@@ -32,12 +32,25 @@ interface Trainer {
   image_url: string;
 }
 
+interface ContactInfo {
+  phone: string;
+  whatsapp: string;
+  facebook: string;
+  youtube: string;
+  instagram: string;
+  telegram: string;
+  email: string;
+  website: string;
+  address: string;
+  working_hours: string;
+}
+
 interface AdminDashboardProps {
   onBack: () => void;
 }
 
 export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'courses' | 'registrations' | 'trainers'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'registrations' | 'trainers' | 'contact'>('courses');
   
   // رسائل التنبيه الداخلية
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
@@ -76,10 +89,26 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   const [trainerBio, setTrainerBio] = useState('');
   const [trainerImage, setTrainerImage] = useState('');
 
+  // حالات إدارة التواصل
+  const [contactData, setContactData] = useState<ContactInfo>({
+    phone: '',
+    whatsapp: '',
+    facebook: '',
+    youtube: '',
+    instagram: '',
+    telegram: '',
+    email: '',
+    website: '',
+    address: '',
+    working_hours: ''
+  });
+  const [isSavingContact, setIsSavingContact] = useState(false);
+
   useEffect(() => {
     fetchCourses();
     fetchRegistrations();
     fetchTrainers();
+    fetchContactData();
   }, []);
 
   const showNotification = (text: string, type: 'success' | 'error') => {
@@ -117,13 +146,18 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
     setLoadingTrainers(false);
   };
 
+  const fetchContactData = async () => {
+    const { data } = await supabase.from('contact_info').select('*').single();
+    if (data) setContactData(data);
+  };
+
   const handleSaveCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingCourse(true);
-    const courseData = { title, instructor, duration, level, description, category, is_active: isActive, month_1: month1, month_2: month2, month_3: month3 };
+    const coursePayload = { title, instructor, duration, level, description, category, is_active: isActive, month_1: month1, month_2: month2, month_3: month3 };
 
     if (editingCourseId) {
-      const { error } = await supabase.from('courses').update(courseData).eq('id', editingCourseId);
+      const { error } = await supabase.from('courses').update(coursePayload).eq('id', editingCourseId);
       if (error) {
         showNotification('خطأ في التحديث: ' + error.message, 'error');
       } else {
@@ -132,7 +166,7 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         fetchCourses();
       }
     } else {
-      const { error } = await supabase.from('courses').insert([courseData]);
+      const { error } = await supabase.from('courses').insert([coursePayload]);
       if (error) {
         showNotification('خطأ في الإضافة: ' + error.message, 'error');
       } else {
@@ -187,10 +221,10 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   const handleSaveTrainer = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingTrainer(true);
-    const trainerData = { name: trainerName, specialty: trainerSpecialty, bio: trainerBio, image_url: trainerImage };
+    const trainerPayload = { name: trainerName, specialty: trainerSpecialty, bio: trainerBio, image_url: trainerImage };
 
     if (editingTrainerId) {
-      const { error } = await supabase.from('trainers').update(trainerData).eq('id', editingTrainerId);
+      const { error } = await supabase.from('trainers').update(trainerPayload).eq('id', editingTrainerId);
       if (error) {
         showNotification('خطأ في التحديث: ' + error.message, 'error');
       } else {
@@ -199,7 +233,7 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         fetchTrainers();
       }
     } else {
-      const { error } = await supabase.from('trainers').insert([trainerData]);
+      const { error } = await supabase.from('trainers').insert([trainerPayload]);
       if (error) {
         showNotification('خطأ في الإضافة: ' + error.message, 'error');
       } else {
@@ -234,6 +268,18 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
     setEditingTrainerId(null);
     setTrainerName(''); setTrainerSpecialty(''); setTrainerBio(''); setTrainerImage('');
     setShowTrainerForm(false);
+  };
+
+  const handleSaveContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingContact(true);
+    const { error } = await supabase.from('contact_info').upsert({ id: 1, ...contactData });
+    setIsSavingContact(false);
+    if (error) {
+      showNotification('خطأ في حفظ بيانات التواصل: ' + error.message, 'error');
+    } else {
+      showNotification('✅ تم تحديث بيانات التواصل بنجاح!', 'success');
+    }
   };
 
   return (
@@ -273,6 +319,12 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
           style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', backgroundColor: activeTab === 'trainers' ? '#2d3d52' : '#cbd5e1', color: activeTab === 'trainers' ? '#fff' : '#334155' }}
         >
           👨‍🏫 إدارة المدربين ({trainers.length})
+        </button>
+        <button 
+          onClick={() => setActiveTab('contact')}
+          style={{ padding: '10px 20px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', backgroundColor: activeTab === 'contact' ? '#2d3d52' : '#cbd5e1', color: activeTab === 'contact' ? '#fff' : '#334155' }}
+        >
+          📞 إدارة قنوات التواصل
         </button>
       </div>
 
@@ -456,6 +508,60 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
               </table>
             </div>
           )}
+        </div>
+      )}
+
+      {/* 4. قسم إدارة قنوات التواصل */}
+      {activeTab === 'contact' && (
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ marginTop: 0, color: '#2d3d52' }}>إدارة جميع قنوات التواصل والروابط</h3>
+          <form onSubmit={handleSaveContact} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginTop: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رقم الهاتف:</label>
+              <input type="text" value={contactData.phone} onChange={e => setContactData({...contactData, phone: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رقم أو رابط واتساب:</label>
+              <input type="text" value={contactData.whatsapp} onChange={e => setContactData({...contactData, whatsapp: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رابط صفحة فيسبوك:</label>
+              <input type="text" value={contactData.facebook} onChange={e => setContactData({...contactData, facebook: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رابط قناة يوتيوب:</label>
+              <input type="text" value={contactData.youtube} onChange={e => setContactData({...contactData, youtube: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رابط حساب إنستغرام:</label>
+              <input type="text" value={contactData.instagram} onChange={e => setContactData({...contactData, instagram: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رابط حساب تليجرام:</label>
+              <input type="text" value={contactData.telegram} onChange={e => setContactData({...contactData, telegram: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>البريد الإلكتروني:</label>
+              <input type="email" value={contactData.email} onChange={e => setContactData({...contactData, email: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>رابط الموقع الإلكتروني:</label>
+              <input type="text" value={contactData.website} onChange={e => setContactData({...contactData, website: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>العنوان (أسوان):</label>
+              <input type="text" value={contactData.address} onChange={e => setContactData({...contactData, address: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold' }}>ساعات العمل:</label>
+              <input type="text" value={contactData.working_hours} onChange={e => setContactData({...contactData, working_hours: e.target.value})} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+            </div>
+            <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
+              <button type="submit" disabled={isSavingContact} style={{ backgroundColor: isSavingContact ? '#94a3b8' : '#2d3d52', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '6px', cursor: isSavingContact ? 'not-allowed' : 'pointer', fontWeight: 'bold', fontSize: '15px' }}>
+                {isSavingContact ? 'جاري الحفظ...' : 'حفظ بيانات التواصل'}
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
