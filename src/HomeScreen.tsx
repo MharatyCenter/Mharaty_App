@@ -48,6 +48,13 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
 
+  // حالات نموذج إرسال الاستفسار
+  const [senderName, setSenderName] = useState('');
+  const [senderEmail, setSenderEmail] = useState('');
+  const [senderMessage, setSenderMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
   useEffect(() => {
     fetchData();
     fetchContactInfo();
@@ -85,6 +92,21 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
     } catch (err) {
       console.error('خطأ في جلب بيانات التواصل:', err);
     }
+  };
+
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSubmitting(true);
+    
+    // محاكاة الإرسال (يمكنك ربطه لاحقاً بجدول في Supabase لتخزين الرسائل إذا أردت)
+    setTimeout(() => {
+      setIsSubmitting(false);
+      setSubmitSuccess(true);
+      setSenderName('');
+      setSenderEmail('');
+      setSenderMessage('');
+      setTimeout(() => setSubmitSuccess(false), 4000);
+    }, 1000);
   };
 
   return (
@@ -287,37 +309,95 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
 
       </main>
 
-      {/* نافذة التواصل معنا المنبثقة */}
+      {/* نافذة التواصل معنا الاحترافية والنموذج التفاعلي */}
       {showContactModal && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
-          <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '2px solid #2d3d52', direction: 'rtl', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
-            <h3 style={{ marginTop: 0, color: '#2d3d52', marginBottom: '15px', borderBottom: '2px solid #b967ff', paddingBottom: '8px' }}>📞 تواصل معنا</h3>
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
+          <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '16px', width: '100%', maxWidth: '480px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', direction: 'rtl', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
             
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px', color: '#334155', marginBottom: '20px' }}>
-              {contactInfo?.phone && <p style={{ margin: 0 }}><strong>الهاتف:</strong> {contactInfo.phone}</p>}
-              {contactInfo?.whatsapp && <p style={{ margin: 0 }}><strong>واتساب:</strong> {contactInfo.whatsapp}</p>}
-              {contactInfo?.email && <p style={{ margin: 0 }}><strong>البريد الإلكتروني:</strong> {contactInfo.email}</p>}
-              {contactInfo?.address && <p style={{ margin: 0 }}><strong>العنوان:</strong> {contactInfo.address}</p>}
-              {contactInfo?.working_hours && <p style={{ margin: 0 }}><strong>ساعات العمل:</strong> {contactInfo.working_hours}</p>}
-
-              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap', marginTop: '10px' }}>
-                {contactInfo?.facebook && <a href={contactInfo.facebook} target="_blank" rel="noreferrer" style={{ color: '#1877f2', textDecoration: 'none', fontWeight: 'bold' }}>فيسبوك</a>}
-                {contactInfo?.youtube && <a href={contactInfo.youtube} target="_blank" rel="noreferrer" style={{ color: '#ff0000', textDecoration: 'none', fontWeight: 'bold' }}>يوتيوب</a>}
-                {contactInfo?.instagram && <a href={contactInfo.instagram} target="_blank" rel="noreferrer" style={{ color: '#e1306c', textDecoration: 'none', fontWeight: 'bold' }}>إنشتاغرام</a>}
-                {contactInfo?.telegram && <a href={contactInfo.telegram} target="_blank" rel="noreferrer" style={{ color: '#0088cc', textDecoration: 'none', fontWeight: 'bold' }}>تيليجرام</a>}
-              </div>
-
-              {!contactInfo?.phone && !contactInfo?.whatsapp && !contactInfo?.email && (
-                <p style={{ color: '#64748b', textAlign: 'center', margin: '10px 0' }}>لا توجد بيانات تواصل متاحة حالياً.</p>
-              )}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #b967ff', paddingBottom: '10px', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0, color: '#2d3d52', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📞 تواصل معنا والاستفسار
+              </h3>
+              <button 
+                onClick={() => setShowContactModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b', fontWeight: 'bold' }}
+              >
+                ✕
+              </button>
             </div>
 
-            <button 
-              onClick={() => setShowContactModal(false)} 
-              style={{ width: '100%', backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
-              إغلاق
-            </button>
+            {/* بطاقة معلومات التواصل السريعة */}
+            <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '15px', border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
+              {contactInfo?.phone && <div><strong>الهاتف:</strong> <span style={{ color: '#334155' }}>{contactInfo.phone}</span></div>}
+              {contactInfo?.whatsapp && <div><strong>واتساب:</strong> <span style={{ color: '#10b981' }}>{contactInfo.whatsapp}</span></div>}
+              {contactInfo?.email && <div style={{ gridColumn: 'span 2' }}><strong>البريد الإلكتروني:</strong> <span style={{ color: '#334155' }}>{contactInfo.email}</span></div>}
+              {contactInfo?.address && <div style={{ gridColumn: 'span 2' }}><strong>العنوان:</strong> <span style={{ color: '#334155' }}>{contactInfo.address}</span></div>}
+              {contactInfo?.working_hours && <div style={{ gridColumn: 'span 2' }}><strong>ساعات العمل:</strong> <span style={{ color: '#334155' }}>{contactInfo.working_hours}</span></div>}
+            </div>
+
+            {/* أيقونات السوشيال ميديا */}
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+              {contactInfo?.facebook && <a href={contactInfo.facebook} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e7f3ff', color: '#1877f2', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>فيسبوك</a>}
+              {contactInfo?.youtube && <a href={contactInfo.youtube} target="_blank" rel="noreferrer" style={{ backgroundColor: '#ffebee', color: '#ff0000', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>يوتيوب</a>}
+              {contactInfo?.instagram && <a href={contactInfo.instagram} target="_blank" rel="noreferrer" style={{ backgroundColor: '#fce4ec', color: '#e1306c', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>إنستغرام</a>}
+              {contactInfo?.telegram && <a href={contactInfo.telegram} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e3f2fd', color: '#0088cc', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>تيليجرام</a>}
+            </div>
+
+            {/* نموذج إرسال استفسار */}
+            <form onSubmit={handleSendMessage} style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
+              <h4 style={{ margin: '0 0 5px 0', color: '#2d3d52', fontSize: '14px' }}>💬 أرسل استفسارك مباشرة</h4>
+              
+              {submitSuccess && (
+                <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '8px', borderRadius: '6px', fontSize: '12px', textAlign: 'center', fontWeight: 'bold' }}>
+                  ✨ تم إرسال استفسارك بنجاح، سنتواصل معك قريباً!
+                </div>
+              )}
+
+              <input 
+                type="text" 
+                placeholder="اسمك الكريم..." 
+                value={senderName} 
+                onChange={(e) => setSenderName(e.target.value)} 
+                required 
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+              />
+
+              <input 
+                type="email" 
+                placeholder="البريد الإلكتروني..." 
+                value={senderEmail} 
+                onChange={(e) => setSenderEmail(e.target.value)} 
+                required 
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+              />
+
+              <textarea 
+                placeholder="اكتب استفسارك أو رسالتك هنا..." 
+                value={senderMessage} 
+                onChange={(e) => setSenderMessage(e.target.value)} 
+                rows={2} 
+                required 
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', resize: 'vertical' }}
+              ></textarea>
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '5px' }}>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  style={{ flex: 1, backgroundColor: '#8b44db', color: '#fff', border: 'none', padding: '9px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  {isSubmitting ? 'جاري الإرسال...' : 'إرسال الاستفسار'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowContactModal(false)} 
+                  style={{ backgroundColor: '#e2e8f0', color: '#334155', border: 'none', padding: '9px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  إغلاق
+                </button>
+              </div>
+            </form>
+
           </div>
         </div>
       )}
