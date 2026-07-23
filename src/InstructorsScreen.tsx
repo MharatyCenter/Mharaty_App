@@ -149,39 +149,83 @@ export default function InstructorsScreen({ onBack }: InstructorsScreenProps) {
     }
   };
 
+  // شاشة تفاصيل السيرة الذاتية للمدرب (معدلة لتطابق التصميم بدون الحقول المحذوفة وبصورة صحيحة)
   if (selectedInstructor) {
     return (
-      <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+      <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', fontFamily: 'Tahoma, sans-serif' }}>
+        
+        {/* الهيدر العلوي */}
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', backgroundColor: '#2d3d52', padding: '15px 20px', borderRadius: '10px', color: '#fff' }}>
-          <h2 style={{ margin: 0, fontSize: '20px' }}>👨‍🏫 السيرة الذاتية للمدرب</h2>
-          <button onClick={() => setSelectedInstructor(null)} style={{ backgroundColor: '#8b44db', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>العودة لقائمة المدربين</button>
+          <h2 style={{ margin: 0, fontSize: '20px' }}>📖 السيرة الذاتية للمدرب</h2>
+          <button 
+            onClick={() => setSelectedInstructor(null)} 
+            style={{ backgroundColor: '#8b44db', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            العودة لجدول المدربين
+          </button>
         </div>
 
-        <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '12px', boxShadow: '0 3px 10px rgba(0,0,0,0.06)', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
-          <img 
-            src={selectedInstructor.image_url || 'https://via.placeholder.com/150'} 
-            alt={selectedInstructor.name} 
-            style={{ width: '130px', height: '130px', borderRadius: '50%', objectFit: 'cover', marginBottom: '15px', border: '4px solid #8b44db' }} 
-          />
-          <h1 style={{ color: '#2d3d52', margin: '0 0 5px 0' }}>{selectedInstructor.name}</h1>
-          <p style={{ color: '#8b44db', fontSize: '15px', fontWeight: 'bold', margin: '0 0 20px 0' }}>{selectedInstructor.title}</p>
+        {/* صندوق تفاصيل المدرب */}
+        <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '10px', boxShadow: '0 3px 10px rgba(0,0,0,0.06)' }}>
           
-          <div style={{ width: '100%', maxWidth: '700px', textAlign: 'right', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #e2e8f0' }}>
-            <h3 style={{ color: '#2d3d52', fontSize: '16px', marginTop: 0 }}>📌 نبذة تعريفية:</h3>
-            <p style={{ color: '#555', fontSize: '15px', lineHeight: '1.8', margin: 0 }}>{selectedInstructor.bio || 'لا توجد نبذة متوفرة حالياً.'}</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '20px' }}>
+            
+            {/* معلومات المدرب (الاسم والتخصص فقط) */}
+            <div style={{ flex: 1, minWidth: '250px' }}>
+              <h1 style={{ color: '#2d3d52', marginTop: 0, marginBottom: '15px', fontSize: '28px' }}>
+                {selectedInstructor.name}
+              </h1>
+              
+              <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
+                <span style={{ backgroundColor: '#f3e8ff', color: '#8b44db', padding: '6px 15px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>
+                  🎓 التخصص: {selectedInstructor.title || 'غير متوفر'}
+                </span>
+              </div>
+            </div>
+
+            {/* صورة المدرب الدائرية */}
+            <div>
+              {selectedInstructor.image_url ? (
+                <img 
+                  src={selectedInstructor.image_url} 
+                  alt={selectedInstructor.name} 
+                  style={{ width: '120px', height: '120px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #8b44db', display: 'block' }} 
+                />
+              ) : (
+                <div style={{ width: '120px', height: '120px', borderRadius: '50%', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '50px', border: '3px solid #cbd5e1' }}>
+                  👤
+                </div>
+              )}
+            </div>
+
           </div>
 
-          <div style={{ width: '100%', maxWidth: '700px', textAlign: 'right', backgroundColor: '#f8fafc', padding: '20px', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-            <h3 style={{ color: '#2d3d52', fontSize: '16px', marginTop: 0 }}>💡 المهارات والخبرات:</h3>
-            <p style={{ color: '#555', fontSize: '15px', lineHeight: '1.8', margin: 0 }}>{selectedInstructor.expertise || 'غير متوفرة.'}</p>
+          <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '25px 0' }} />
+
+          {/* النبذة التعريفية */}
+          <div style={{ marginBottom: '25px' }}>
+            <h3 style={{ color: '#2d3d52', fontSize: '18px', marginBottom: '10px' }}>نبذة تعريفية:</h3>
+            <p style={{ color: '#555', fontSize: '16px', lineHeight: '1.8', margin: 0 }}>
+              {selectedInstructor.bio || 'لا توجد نبذة مضافة.'}
+            </p>
           </div>
+
+          {/* المهارات والخبرات */}
+          <div>
+            <h3 style={{ color: '#2d3d52', fontSize: '18px', marginBottom: '10px' }}>💡 المهارات والخبرات:</h3>
+            <p style={{ color: '#555', fontSize: '16px', lineHeight: '1.8', margin: 0 }}>
+              {selectedInstructor.expertise || 'غير متوفرة.'}
+            </p>
+          </div>
+
         </div>
       </div>
     );
   }
 
+  // الشاشة الرئيسية لجدول المدربين
   return (
-    <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+    <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', fontFamily: 'Tahoma, sans-serif' }}>
       
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', backgroundColor: '#2d3d52', padding: '15px 20px', borderRadius: '10px', color: '#fff', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ margin: 0, fontSize: '20px' }}>👨‍🏫 نخبة المدربين الخبراء</h2>

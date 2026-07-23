@@ -47,7 +47,12 @@ export default function Trainer({ onBack }: TrainerProps) {
     }
   };
 
-  // شاشة تفاصيل السيرة الذاتية للمدرب (مخصصة للعرض فقط)
+  // دالة مساعدة للتحقق من صحة رابط الصورة
+  const isValidImageUrl = (url: string) => {
+    return url && typeof url === 'string' && url.trim().startsWith('http');
+  };
+
+  // شاشة تفاصيل السيرة الذاتية للمدرب
   if (selectedTrainer) {
     return (
       <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', fontFamily: 'Tahoma, sans-serif' }}>
@@ -57,19 +62,18 @@ export default function Trainer({ onBack }: TrainerProps) {
         </div>
 
         <div style={{ backgroundColor: '#fff', padding: '30px', borderRadius: '10px', boxShadow: '0 3px 10px rgba(0,0,0,0.06)', display: 'flex', gap: '30px', flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          {selectedTrainer.image_url ? (
+          
+          {/* عرض الصورة أو الأيقونة الاحتياطية في حال كان الرابط غير صالح */}
+          {isValidImageUrl(selectedTrainer.image_url) ? (
             <img src={selectedTrainer.image_url} alt={selectedTrainer.name} style={{ width: '150px', height: '150px', borderRadius: '50%', objectFit: 'cover', border: '3px solid #8b44db' }} />
           ) : (
-            <div style={{ width: '150px', height: '150px', borderRadius: '50%', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '50px', border: '3px solid #cbd5e1' }}>👤</div>
+            <div style={{ width: '150px', height: '150px', borderRadius: '50%', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '60px', border: '3px solid #cbd5e1' }}>👤</div>
           )}
 
           <div style={{ flex: 1 }}>
             <h1 style={{ color: '#2d3d52', marginTop: 0, marginBottom: '20px' }}>{selectedTrainer.name}</h1>
             <div style={{ display: 'flex', gap: '15px', marginBottom: '25px', flexWrap: 'wrap' }}>
               <span style={{ backgroundColor: '#f3e8ff', color: '#8b44db', padding: '6px 15px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>🎓 التخصص: {selectedTrainer.specialty}</span>
-              <span style={{ backgroundColor: '#e2e8f0', color: '#334155', padding: '6px 15px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>⏳ الخبرة: {selectedTrainer.experience_years || 'غير محدد'}</span>
-              <span style={{ backgroundColor: '#e2e8f0', color: '#334155', padding: '6px 15px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>📧 البريد: {selectedTrainer.email || 'غير متوفر'}</span>
-              <span style={{ backgroundColor: '#e2e8f0', color: '#334155', padding: '6px 15px', borderRadius: '20px', fontSize: '14px', fontWeight: 'bold' }}>📱 الهاتف: {selectedTrainer.phone || 'غير متوفر'}</span>
             </div>
             <hr style={{ border: 'none', borderTop: '1px solid #eee', margin: '20px 0' }} />
             <h3 style={{ color: '#2d3d52', fontSize: '18px' }}>نبذة تعريفية:</h3>
@@ -83,7 +87,7 @@ export default function Trainer({ onBack }: TrainerProps) {
   return (
     <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', position: 'relative', fontFamily: 'Tahoma, sans-serif' }}>
       
-      {/* هيدر الصفحة (يحتوي فقط على عنوان الشاشة وزر العودة للرئيسية) */}
+      {/* هيدر الصفحة */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', backgroundColor: '#2d3d52', padding: '15px 20px', borderRadius: '10px', color: '#fff', flexWrap: 'wrap', gap: '10px' }}>
         <h2 style={{ margin: 0, fontSize: '20px' }}>👨‍🏫 قائمة المدربين المعتمدين</h2>
         
@@ -92,7 +96,7 @@ export default function Trainer({ onBack }: TrainerProps) {
         </button>
       </div>
 
-      {/* جدول عرض المدربين (للعرض فقط بدون أي صلاحيات أو أزرار إشراف) */}
+      {/* جدول عرض المدربين */}
       {loading ? (
         <p style={{ textAlign: 'center', color: '#666', fontSize: '16px', marginTop: '50px' }}>جاري التحميل... 🔄</p>
       ) : trainers.length === 0 ? (
@@ -107,7 +111,6 @@ export default function Trainer({ onBack }: TrainerProps) {
                 <th style={{ padding: '12px 15px' }}>الصورة</th>
                 <th style={{ padding: '12px 15px' }}>اسم المدرب</th>
                 <th style={{ padding: '12px 15px' }}>التخصص</th>
-                <th style={{ padding: '12px 15px' }}>الخبرة</th>
                 <th style={{ padding: '12px 15px' }}>الحالة</th>
               </tr>
             </thead>
@@ -115,7 +118,7 @@ export default function Trainer({ onBack }: TrainerProps) {
               {trainers.map((trainer, index) => (
                 <tr key={trainer.id} style={{ borderBottom: '1px solid #eee', backgroundColor: index % 2 === 0 ? '#fff' : '#fafafa' }}>
                   <td style={{ padding: '10px 15px' }}>
-                    {trainer.image_url ? (
+                    {isValidImageUrl(trainer.image_url) ? (
                       <img src={trainer.image_url} alt={trainer.name} style={{ width: '40px', height: '40px', borderRadius: '50%', objectFit: 'cover' }} />
                     ) : (
                       <div style={{ width: '40px', height: '40px', borderRadius: '50%', backgroundColor: '#e2e8f0', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>👤</div>
@@ -127,7 +130,6 @@ export default function Trainer({ onBack }: TrainerProps) {
                     </span>
                   </td>
                   <td style={{ padding: '12px 15px', color: '#475569' }}>{trainer.specialty}</td>
-                  <td style={{ padding: '12px 15px', color: '#666' }}>{trainer.experience_years || 'غير محدد'}</td>
                   <td style={{ padding: '12px 15px' }}>
                     {trainer.is_active ? (
                       <span style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '4px 10px', borderRadius: '20px', fontSize: '12px', fontWeight: 'bold' }}>نشط</span>

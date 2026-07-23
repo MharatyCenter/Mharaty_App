@@ -109,10 +109,78 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
     }
   };
 
+  // مكون نافذة التسجيل المشترك لمنع تكرار الكود
+  const renderRegisterModal = () => {
+    if (!isRegisterModalOpen) return null;
+    return (
+      <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
+        <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '2px solid #8b44db', textAlign: 'right' }}>
+          <h3 style={{ marginTop: 0, color: '#2d3d52', marginBottom: '5px' }}>📝 التسجيل في الكورس</h3>
+          <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>{selectedCourseForRegister?.title}</p>
+          
+          <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#334155' }}>الاسم الكامل:</label>
+              <input 
+                type="text" 
+                value={studentName} 
+                onChange={(e) => setStudentName(e.target.value)} 
+                placeholder="أدخل اسمك الكامل..." 
+                required
+                style={{ width: '100%', padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }} 
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#334155' }}>البريد الإلكتروني:</label>
+              <input 
+                type="email" 
+                value={studentEmail} 
+                onChange={(e) => setStudentEmail(e.target.value)} 
+                placeholder="name@example.com" 
+                required
+                style={{ width: '100%', padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }} 
+              />
+            </div>
+
+            <div>
+              <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#334155' }}>رقم الهاتف / الواتساب:</label>
+              <input 
+                type="text" 
+                value={studentPhone} 
+                onChange={(e) => setStudentPhone(e.target.value)} 
+                placeholder="010xxxxxxxx" 
+                required
+                style={{ width: '100%', padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }} 
+              />
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
+              <button 
+                type="submit" 
+                disabled={isSubmitting}
+                style={{ backgroundColor: '#8b44db', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', opacity: isSubmitting ? 0.7 : 1 }}
+              >
+                {isSubmitting ? 'جاري الحفظ...' : 'تأكيد التسجيل'}
+              </button>
+              <button 
+                type="button" 
+                onClick={() => setIsRegisterModalOpen(false)} 
+                style={{ backgroundColor: '#64748b', color: '#fff', border: 'none', padding: '9px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+              >
+                إلغاء
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+    );
+  };
+
   // 1. شاشة تفاصيل الكورس
   if (selectedCourseDetails) {
     return (
-      <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
+      <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', position: 'relative' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', backgroundColor: '#2d3d52', padding: '15px 20px', borderRadius: '10px', color: '#fff' }}>
           <h2 style={{ margin: 0, fontSize: '20px' }}>📖 تفاصيل الكورس التدريبي</h2>
           <button 
@@ -144,6 +212,9 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
             📝 سجل الآن في هذا الكورس
           </button>
         </div>
+
+        {/* عرض نافذة التسجيل هنا أيضاً لتظهر فوراً داخل صفحة التفاصيل */}
+        {renderRegisterModal()}
       </div>
     );
   }
@@ -212,70 +283,8 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
         </div>
       )}
 
-      {/* نافذة تسجيل بيانات المتدرب (Modal) */}
-      {isRegisterModalOpen && (
-        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
-          <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '12px', width: '100%', maxWidth: '400px', boxShadow: '0 4px 20px rgba(0,0,0,0.15)', border: '2px solid #8b44db' }}>
-            <h3 style={{ marginTop: 0, color: '#2d3d52', marginBottom: '5px' }}>📝 التسجيل في الكورس</h3>
-            <p style={{ color: '#64748b', fontSize: '13px', marginBottom: '20px' }}>{selectedCourseForRegister?.title}</p>
-            
-            <form onSubmit={handleRegisterSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#334155' }}>الاسم الكامل:</label>
-                <input 
-                  type="text" 
-                  value={studentName} 
-                  onChange={(e) => setStudentName(e.target.value)} 
-                  placeholder="أدخل اسمك الكامل..." 
-                  required
-                  style={{ width: '100%', padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }} 
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#334155' }}>البريد الإلكتروني:</label>
-                <input 
-                  type="email" 
-                  value={studentEmail} 
-                  onChange={(e) => setStudentEmail(e.target.value)} 
-                  placeholder="name@example.com" 
-                  required
-                  style={{ width: '100%', padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }} 
-                />
-              </div>
-
-              <div>
-                <label style={{ display: 'block', marginBottom: '5px', fontSize: '13px', fontWeight: 'bold', color: '#334155' }}>رقم الهاتف / الواتساب:</label>
-                <input 
-                  type="text" 
-                  value={studentPhone} 
-                  onChange={(e) => setStudentPhone(e.target.value)} 
-                  placeholder="010xxxxxxxx" 
-                  required
-                  style={{ width: '100%', padding: '9px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }} 
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '10px' }}>
-                <button 
-                  type="submit" 
-                  disabled={isSubmitting}
-                  style={{ backgroundColor: '#8b44db', color: '#fff', border: 'none', padding: '9px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', opacity: isSubmitting ? 0.7 : 1 }}
-                >
-                  {isSubmitting ? 'جاري الحفظ...' : 'تأكيد التسجيل'}
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => setIsRegisterModalOpen(false)} 
-                  style={{ backgroundColor: '#64748b', color: '#fff', border: 'none', padding: '9px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  إلغاء
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
+      {/* نافذة تسجيل بيانات المتدرب (Modal) للشاشة الرئيسية */}
+      {renderRegisterModal()}
 
     </div>
   );
