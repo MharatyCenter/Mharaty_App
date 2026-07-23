@@ -58,6 +58,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
   useEffect(() => {
     fetchData();
     fetchContactInfo();
+    trackVisitor(); // تتبع حركة الزائرين وتسجيلها في مهاراتي
   }, []);
 
   const fetchData = async () => {
@@ -81,6 +82,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
   const fetchContactInfo = async () => {
     try {
       const { data, error } = await supabase
+        .schema('mharaty')
         .from('contact_info')
         .select('*')
         .eq('id', 1)
@@ -94,19 +96,59 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
     }
   };
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  // دالة تتبع الزيارات اليومية وتحديثها ضمن مخطط mharaty
+  const trackVisitor = async () => {
+    try {
+      const today = new Date().toISOString().split('T')[0];
+      
+      const { data, error: fetchError } = await supabase
+        .schema('mharaty')
+        .from('site_analytics')
+        .select('*')
+        .eq('visit_date', today)
+        .maybeSingle();
+
+      if (!fetchError && data) {
+        await supabase
+          .schema('mharaty')
+          .from('site_analytics')
+          .update({ visitor_count: data.visitor_count + 1 })
+          .eq('visit_date', today);
+      } else {
+        await supabase
+          .schema('mharaty')
+          .from('site_analytics')
+          .insert([{ visit_date: today, visitor_count: 1 }]);
+      }
+    } catch (err) {
+      console.error('خطأ في تتبع الزيارات:', err);
+    }
+  };
+
+  // دالة إرسال الاستفسار وحفظه في مخطط mharaty.contact_messages
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
     
-    // محاكاة الإرسال (يمكنك ربطه لاحقاً بجدول في Supabase لتخزين الرسائل إذا أردت)
-    setTimeout(() => {
-      setIsSubmitting(false);
+    try {
+      const { error } = await supabase
+        .schema('mharaty')
+        .from('contact_messages')
+        .insert([{ sender_name: senderName, sender_email: senderEmail, message: senderMessage }]);
+
+      if (error) throw error;
+
       setSubmitSuccess(true);
       setSenderName('');
       setSenderEmail('');
       setSenderMessage('');
       setTimeout(() => setSubmitSuccess(false), 4000);
-    }, 1000);
+    } catch (err) {
+      console.error('خطأ في إرسال الرسالة:', err);
+      alert('حدث خطأ أثناء إرسال الرسالة، يرجى المحاولة مرة أخرى.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
