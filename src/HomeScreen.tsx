@@ -16,6 +16,15 @@ interface Course {
   month_3: boolean;
 }
 
+interface EventItem {
+  id: number;
+  title: string;
+  description: string;
+  icon: string;
+  border_color: string;
+  bg_color: string;
+}
+
 interface ContactInfo {
   phone?: string;
   whatsapp?: string;
@@ -39,16 +48,15 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [activeCourses, setActiveCourses] = useState<Course[]>([]);
   const [planCourses, setPlanCourses] = useState<Course[]>([]);
+  const [eventsList, setEventsList] = useState<EventItem[]>([]);
 
-  // حالات الطي والإظهار للأقسام المطلوبة
   const [isReadyCoursesOpen, setIsReadyCoursesOpen] = useState(true);
   const [isQuarterPlanOpen, setIsQuarterPlanOpen] = useState(true);
+  const [isEventsOpen, setIsEventsOpen] = useState(true);
 
-  // حالة نافذة التواصل معنا
   const [showContactModal, setShowContactModal] = useState(false);
   const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
 
-  // حالات نموذج إرسال الاستفسار
   const [senderName, setSenderName] = useState('');
   const [senderEmail, setSenderEmail] = useState('');
   const [senderMessage, setSenderMessage] = useState('');
@@ -57,8 +65,9 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
 
   useEffect(() => {
     fetchData();
+    fetchEvents();
     fetchContactInfo();
-    trackVisitor(); 
+    trackVisitorAdvanced(); // تم تحديثها لتسجيل البيانات التفصيلية في لوحة التحكم
   }, []);
 
   const fetchData = async () => {
@@ -79,6 +88,21 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
     }
   };
 
+  const fetchEvents = async () => {
+    try {
+      const { data, error } = await supabase
+        .schema('mharaty')
+        .from('events')
+        .select('*');
+
+      if (!error && data) {
+        setEventsList(data);
+      }
+    } catch (err) {
+      console.error('خطأ في جلب الفعاليات:', err);
+    }
+  };
+
   const fetchContactInfo = async () => {
     try {
       const { data, error } = await supabase
@@ -96,31 +120,47 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
     }
   };
 
-  const trackVisitor = async () => {
+  // دالة تسجيل الزيارات المتقدمة لتغذية الجدول في لوحة التحكم
+  const trackVisitorAdvanced = async () => {
     try {
-      const today = new Date().toISOString().split('T')[0];
-      
-      const { data, error: fetchError } = await supabase
-        .schema('mharaty')
-        .from('site_analytics')
-        .select('*')
-        .eq('visit_date', today)
-        .maybeSingle();
-
-      if (!fetchError && data) {
-        await supabase
-          .schema('mharaty')
-          .from('site_analytics')
-          .update({ visitor_count: data.visitor_count + 1 })
-          .eq('visit_date', today);
-      } else {
-        await supabase
-          .schema('mharaty')
-          .from('site_analytics')
-          .insert([{ visit_date: today, visitor_count: 1 }]);
+      const userAgent = navigator.userAgent;
+      let deviceType = 'مكتبى (Desktop)';
+      if (/Mobi|Android/i.test(userAgent)) {
+        deviceType = 'جوال (Mobile)';
+      } else if (/Tablet|iPad/i.test(userAgent)) {
+        deviceType = 'تابلت (Tablet)';
       }
+
+      let browser = 'متصفح غير معروف';
+      if (userAgent.indexOf('Firefox') > -1) browser = 'Firefox';
+      else if (userAgent.indexOf('SamsungBrowser') > -1) browser = 'Samsung Browser';
+      else if (userAgent.indexOf('Opera') > -1 || userAgent.indexOf('OPR') > -1) browser = 'Opera';
+      else if (userAgent.indexOf('Trident') > -1) browser = 'Internet Explorer';
+      else if (userAgent.indexOf('Edge') > -1) browser = 'MS Edge';
+      else if (userAgent.indexOf('Chrome') > -1) browser = 'Chrome';
+      else if (userAgent.indexOf('Safari') > -1) browser = 'Safari';
+
+      let os = 'نظام غير معروف';
+      if (userAgent.indexOf('Win') !== -1) os = 'Windows';
+      else if (userAgent.indexOf('Mac') !== -1) os = 'MacOS';
+      else if (userAgent.indexOf('Linux') !== -1) os = 'Linux';
+      else if (userAgent.indexOf('Android') !== -1) os = 'Android';
+      else if (userAgent.indexOf('like Mac') !== -1) os = 'iOS';
+
+      // إرسال البيانات المتقدمة إلى جدول site_analytics_advanced
+      await supabase
+        .schema('mharaty')
+        .from('site_analytics_advanced')
+        .insert([
+          {
+            page_path: window.location.pathname || '/home',
+            device_type: deviceType,
+            browser: `${browser} / ${os}`,
+            user_name: localStorage.getItem('mharaty_user_name') || null
+          }
+        ]);
     } catch (err) {
-      console.error('خطأ في تتبع الزيارات:', err);
+      console.error('خطأ في تسجيل تفاصيل الزيارة:', err);
     }
   };
 
@@ -288,7 +328,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
         </div>
 
         {isQuarterPlanOpen && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '15px', marginBottom: '30px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '15px', marginBottom: '40px' }}>
             
             {/* الشهر الأول */}
             <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #8b44db' }}>
@@ -344,9 +384,38 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
           </div>
         )}
 
+        {/* 4. قسم الفعاليات وأخبار المركز */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #f59e0b', paddingBottom: '5px', marginBottom: '15px' }}>
+          <h2 style={{ color: '#2d3d52', fontSize: '18px', margin: 0 }}>📢 الفعاليات وأخبار المركز</h2>
+          <button 
+            onClick={() => setIsEventsOpen(!isEventsOpen)}
+            style={{ backgroundColor: 'transparent', border: 'none', color: '#f59e0b', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
+          >
+            {isEventsOpen ? '▲ إخفاء' : '▼ إظهار'}
+          </button>
+        </div>
+
+        {isEventsOpen && (
+          eventsList.length === 0 ? (
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '30px' }}>لا توجد فعاليات أو أخبار مضافة حالياً.</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginBottom: '30px' }}>
+              {eventsList.map((item) => (
+                <div key={item.id} style={{ backgroundColor: '#fff', padding: '16px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: `5px solid ${item.border_color || '#f59e0b'}`, display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '24px', backgroundColor: item.bg_color || '#fef3c7', padding: '8px', borderRadius: '8px' }}>{item.icon || '🎓'}</span>
+                  <div>
+                    <h4 style={{ margin: '0 0 6px 0', color: '#2d3d52', fontSize: '15px' }}>{item.title}</h4>
+                    <p style={{ color: '#666', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
       </main>
 
-      {/* نافذة التواصل معنا والنموذج التفاعلي */}
+      {/* نافذة التواصل معنا */}
       {showContactModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '16px', width: '100%', maxWidth: '480px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', direction: 'rtl', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -363,7 +432,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
               </button>
             </div>
 
-            {/* عرض صورة قاعة التدريب بالحجم الكبير مع الرابط الجديد */}
             <div style={{ marginBottom: '15px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #cbd5e1', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
               <div style={{ backgroundColor: '#2d3d52', color: '#fff', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
                 🏫 نظرة على قاعة التدريب بمقر المركز
@@ -375,7 +443,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
               />
             </div>
 
-            {/* بطاقة معلومات التواصل والعنوان */}
             <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '15px', border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
               {contactInfo?.phone && <div><strong>الهاتف:</strong> <span style={{ color: '#334155' }}>{contactInfo.phone}</span></div>}
               {contactInfo?.whatsapp && <div><strong>واتساب:</strong> <span style={{ color: '#10b981' }}>{contactInfo.whatsapp}</span></div>}
@@ -398,7 +465,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
               {contactInfo?.working_hours && <div style={{ gridColumn: 'span 2', marginTop: '4px' }}><strong>ساعات العمل:</strong> <span style={{ color: '#334155' }}>{contactInfo.working_hours}</span></div>}
             </div>
 
-            {/* أيقونات السوشيال ميديا */}
             <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
               {contactInfo?.facebook && <a href={contactInfo.facebook} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e7f3ff', color: '#1877f2', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>فيسبوك</a>}
               {contactInfo?.youtube && <a href={contactInfo.youtube} target="_blank" rel="noreferrer" style={{ backgroundColor: '#ffebee', color: '#ff0000', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>يوتيوب</a>}
@@ -406,7 +472,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
               {contactInfo?.telegram && <a href={contactInfo.telegram} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e3f2fd', color: '#0088cc', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>تيليجرام</a>}
             </div>
 
-            {/* نموذج إرسال استفسار */}
             <form onSubmit={handleSendMessage} style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
               <h4 style={{ margin: '0 0 5px 0', color: '#2d3d52', fontSize: '14px' }}>💬 أرسل استفسارك مباشرة</h4>
               

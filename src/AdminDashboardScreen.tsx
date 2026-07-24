@@ -60,19 +60,24 @@ interface ContactMessage {
   created_at: string;
 }
 
-interface SiteAnalytics {
+interface AnalyticsData {
   id: number;
-  visit_date: string;
-  visitor_count: number;
+  page_path: string;
+  device_type: string;
+  browser: string;
+  user_name?: string;
+  created_at: string;
 }
 
 interface AdminDashboardProps {
-  onBack: () => void;
+  onBack?: () => void;
+  onBackToHome?: () => void;
 }
 
-export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
-  const [activeTab, setActiveTab] = useState<'courses' | 'registrations' | 'trainers' | 'contact' | 'messages' | 'analytics'>('courses');
+export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDashboardProps) {
+  const handleBack = onBack || onBackToHome || (() => {});
   
+  const [activeTab, setActiveTab] = useState<'courses' | 'events' | 'trainers' | 'registrations' | 'contact_channels' | 'messages' | 'analytics'>('courses');
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // حالات الكورسات
@@ -115,13 +120,20 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   const [trainerImage, setTrainerImage] = useState('');
   const [trainerIsActive, setTrainerIsActive] = useState(true);
 
-  // حالات التواصل والرسائل والإحصائيات
+  // حالات التواصل والرسائل والإحصائيات المتقدمة
   const [contactData, setContactData] = useState<ContactInfo>({
     phone: '', whatsapp: '', facebook: '', youtube: '', instagram: '', telegram: '', email: '', website: '', address: '', working_hours: ''
   });
   const [isSavingContact, setIsSavingContact] = useState(false);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
-  const [analytics, setAnalytics] = useState<SiteAnalytics[]>([]);
+  
+  // الإحصائيات المتقدمة
+  const [analyticsList, setAnalyticsList] = useState<AnalyticsData[]>([]);
+  const [totalVisitors, setTotalVisitors] = useState<number>(0);
+  const [activeVisitorsCount, setActiveVisitorsCount] = useState<number>(0);
+  const [categoryStats, setCategoryStats] = useState({ digital: 0, professional: 0, life: 0 });
+  const [peakHours, setPeakHours] = useState<string>('جاري التحليل...');
+  const [activeCoursesCount, setActiveCoursesCount] = useState<number>(0);
 
   useEffect(() => {
     fetchAllData();
@@ -133,38 +145,73 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   };
 
   const fetchAllData = async () => {
-    // 1. الكورسات
     setLoadingCourses(true);
-    const { data: cData } = await supabase.schema('mharaty').from('courses').select('*').order('id', { ascending: false });
-    if (cData) setCourses(cData);
-    setLoadingCourses(false);
-
-    // 2. التسجيلات
     setLoadingRegs(true);
-    const { data: rData } = await supabase.schema('mharaty').from('course_registrations').select('*').order('created_at', { ascending: false });
-    if (rData) setRegistrations(rData);
-    setLoadingRegs(false);
-
-    // 3. المدربين
     setLoadingTrainers(true);
-    const { data: tData } = await supabase.schema('mharaty').from('trainers').select('*').order('id', { ascending: false });
-    if (tData) {
-      setTrainers(tData);
-      if (tData.length > 0 && !instructor) setInstructor(tData[0].name);
-    }
-    setLoadingTrainers(false);
 
-    // 4. معلومات التواصل
-    const { data: conData } = await supabase.schema('mharaty').from('contact_info').select('*').single();
-    if (conData) setContactData(conData);
+    await Promise.all([
+      supabase.schema('mharaty').from('courses').select('*').order('id', { ascending: false }).then(({ data }) => {
+        if (data) {
+          setCourses(data);
+          const digitalCount = data.filter(c => c.category === 'digital').length;
+          const professionalCount = data.filter(c => c.category === 'professional').length;
+          const lifeCount = data.filter(c => c.category === 'life').length;
+          const activeCount = data.filter(c => c.is_active).length;
+          setCategoryStats({ digital: digitalCount, professional: professionalCount, life: lifeCount });
+          setActiveCoursesCount(activeCount);
+        }
+        setLoadingCourses(false);
+      }),
+      supabase.schema('mharaty').from('course_registrations').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+        if (data) setRegistrations(data);
+        setLoadingRegs(false);
+      }),
+      supabase.schema('mharaty').from('trainers').select('*').order('id', { ascending: false }).then(({ data }) => {
+        if (data) {
+          setTrainers(data);
+          if (data.length > 0 && !instructor) setInstructor(data[0].name);
+        }
+        setLoadingTrainers(false);
+      }),
+      supabase.schema('mharaty').from('contact_info').select('*').maybeSingle().then(({ data }) => {
+        if (data) setContactData(data);
+      }),
+      supabase.schema('mharaty').from('contact_messages').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+        if (data) setMessages(data);
+      }),
+      supabase.schema('mharaty').from('site_analytics_advanced').select('*', { count: 'exact' }).order('created_at', { ascending: false }).then(({ data, count }) => {
+        if (data) {
+          setAnalyticsList(data);
+          setTotalVisitors(count || data.length);
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const activeNow = data.filter(item => new Date(item.created_at) > fiveMinutesAgo).length;
+          setActiveVisitorsCount(activeNow > 0 ? activeNow : 1);
 
-    // 5. الرسائل
-    const { data: mData } = await supabase.schema('mharaty').from('contact_messages').select('*').order('created_at', { ascending: false });
-    if (mData) setMessages(mData);
-
-    // 6. الإحصائيات
-    const { data: aData } = await supabase.schema('mharaty').from('site_analytics').select('*').order('visit_date', { ascending: false }).limit(30);
-    if (aData) setAnalytics(aData);
+          if (data.length > 0) {
+            const hoursCount: { [key: number]: number } = {};
+            data.forEach(row => {
+              const hour = new Date(row.created_at).getHours();
+              hoursCount[hour] = (hoursCount[hour] || 0) + 1;
+            });
+            let peakHour = 0;
+            let maxVisits = 0;
+            Object.keys(hoursCount).forEach(hourStr => {
+              const h = Number(hourStr);
+              if (hoursCount[h] > maxVisits) {
+                maxVisits = hoursCount[h];
+                peakHour = h;
+              }
+            });
+            const formattedHour = peakHour >= 12 
+              ? `${peakHour === 12 ? 12 : peakHour - 12} مساءً` 
+              : `${peakHour === 0 ? 12 : peakHour} صباحاً`;
+            setPeakHours(formattedHour);
+          } else {
+            setPeakHours('لا توجد بيانات كافية');
+          }
+        }
+      })
+    ]);
   };
 
   const handleSaveCourse = async (e: React.FormEvent) => {
@@ -186,7 +233,7 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
     if (error) {
       showNotification('خطأ: ' + error.message, 'error');
     } else {
-      showNotification('✅ تم الحفظ بنجاح!', 'success');
+      showNotification('✅ تم حفظ الكورس بنجاح!', 'success');
       resetCourseForm();
       fetchAllData();
     }
@@ -295,11 +342,11 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
   return (
     <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'Tahoma, sans-serif' }}>
       
-      {/* الهيدر */}
+      {/* الهيدر وزر العودة */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#2d3d52', padding: '15px 25px', borderRadius: '12px', color: '#fff', marginBottom: '20px' }}>
-        <h2 style={{ margin: 0, fontSize: '18px' }}>🛠️ لوحة تحكم مشروع مهاراتي (Schema: mharaty)</h2>
-        <button onClick={onBack} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
-          تسجيل خروج / العودة للرئيسية
+        <h2 style={{ margin: 0, fontSize: '18px' }}>⚙️ لوحة تحكم المشرفين - مهاراتي (Schema: mharaty)</h2>
+        <button onClick={handleBack} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+          🏠 العودة للرئيسية / تسجيل خروج
         </button>
       </div>
 
@@ -309,20 +356,21 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         </div>
       )}
 
-      {/* شريط التنقل */}
+      {/* شريط التنقل والتبويبات */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {[
-          { id: 'courses', label: `📁 الكورسات (${courses.length})` },
-          { id: 'registrations', label: `📊 التسجيلات (${registrations.length})` },
+          { id: 'courses', label: `📘 إدارة الكورسات (${courses.length})` },
+          { id: 'events', label: '📢 الفعاليات' },
           { id: 'trainers', label: `👨‍🏫 المدربين (${trainers.length})` },
-          { id: 'contact', label: '📞 قنوات التواصل' },
+          { id: 'registrations', label: `📝 التسجيلات (${registrations.length})` },
+          { id: 'contact_channels', label: '📞 قنوات التواصل' },
           { id: 'messages', label: `💬 الرسائل (${messages.length})` },
-          { id: 'analytics', label: '📈 الإحصائيات' },
+          { id: 'analytics', label: '📊 الإحصائيات المتقدمة' },
         ].map(tab => (
           <button 
             key={tab.id}
             onClick={() => setActiveTab(tab.id as any)}
-            style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', backgroundColor: activeTab === tab.id ? '#2d3d52' : '#cbd5e1', color: activeTab === tab.id ? '#fff' : '#334155' }}
+            style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', backgroundColor: activeTab === tab.id ? '#2d3d52' : '#fff', color: activeTab === tab.id ? '#fff' : '#2d3d52', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
           >
             {tab.label}
           </button>
@@ -333,8 +381,8 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
       {activeTab === 'courses' && (
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0, color: '#2d3d52' }}>إدارة الكورسات التدريبية</h3>
-            <button onClick={() => { resetCourseForm(); setShowCourseForm(true); }} disabled={showCourseForm} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            <h3 style={{ margin: 0, color: '#2d3d52', fontSize: '16px' }}>إدارة الكورسات التدريبية</h3>
+            <button onClick={() => { resetCourseForm(); setShowCourseForm(true); }} disabled={showCourseForm} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
               ➕ إضافة كورس جديد
             </button>
           </div>
@@ -347,7 +395,7 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
                 <input type="text" placeholder="اسم المدرب" value={instructor} onChange={e => setInstructor(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 <input type="text" placeholder="المدة (مثال: 4 أسابيع)" value={duration} onChange={e => setDuration(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 <input type="text" placeholder="المستوى" value={level} onChange={e => setLevel(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                <input type="text" placeholder="التصنيف (digital, etc)" value={category} onChange={e => setCategory(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="التصنيف (digital, professional, life)" value={category} onChange={e => setCategory(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 <input type="number" placeholder="نسبة الإنجاز %" value={progress} onChange={e => setProgress(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
               </div>
               <textarea placeholder="وصف الكورس..." value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
@@ -372,8 +420,8 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
                   <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
                     <th style={{ padding: '10px' }}>العنوان</th>
                     <th style={{ padding: '10px' }}>المدرب</th>
+                    <th style={{ padding: '10px' }}>التصنيف</th>
                     <th style={{ padding: '10px' }}>الحالة</th>
-                    <th style={{ padding: '10px' }}>الخطط</th>
                     <th style={{ padding: '10px' }}>الإجراءات</th>
                   </tr>
                 </thead>
@@ -382,8 +430,8 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
                     <tr key={c.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.title}</td>
                       <td style={{ padding: '10px' }}>{c.instructor}</td>
+                      <td style={{ padding: '10px', color: '#8b44db' }}>{c.category}</td>
                       <td style={{ padding: '10px' }}>{c.is_active ? <span style={{ color: '#10b981' }}>نشط</span> : 'غير نشط'}</td>
-                      <td style={{ padding: '10px' }}>{c.month_1 && 'ش1 '} {c.month_2 && 'ش2 '} {c.month_3 && 'ش3'}</td>
                       <td style={{ padding: '10px', display: 'flex', gap: '8px' }}>
                         <button onClick={() => handleEditCourseClick(c)} style={{ backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>تعديل</button>
                         <button onClick={() => handleDeleteCourse(c.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>حذف</button>
@@ -397,36 +445,11 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         </div>
       )}
 
-      {/* 2. التسجيلات */}
-      {activeTab === 'registrations' && (
+      {/* 2. الفعاليات */}
+      {activeTab === 'events' && (
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ marginTop: 0, color: '#2d3d52' }}>طلبات التسجيل في الدورات</h3>
-          {loadingRegs ? <p>جاري التحميل...</p> : registrations.length === 0 ? <p>لا توجد طلبات.</p> : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
-                    <th style={{ padding: '10px' }}>اسم الطالب</th>
-                    <th style={{ padding: '10px' }}>البريد</th>
-                    <th style={{ padding: '10px' }}>الهاتف</th>
-                    <th style={{ padding: '10px' }}>الكورس</th>
-                    <th style={{ padding: '10px' }}>التاريخ</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {registrations.map(r => (
-                    <tr key={r.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{r.student_name}</td>
-                      <td style={{ padding: '10px' }}>{r.email}</td>
-                      <td style={{ padding: '10px' }}>{r.phone}</td>
-                      <td style={{ padding: '10px', color: '#8b44db' }}>{r.course_title}</td>
-                      <td style={{ padding: '10px', fontSize: '12px' }}>{new Date(r.created_at).toLocaleString('ar-EG')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <h3 style={{ marginTop: 0, color: '#2d3d52', fontSize: '16px' }}>📢 إدارة الفعاليات والأنشطة</h3>
+          <p style={{ color: '#64748b', fontSize: '13px' }}>قسم الفعاليات جاهز لإضافة وتنظيم الأنشطة القادمة.</p>
         </div>
       )}
 
@@ -434,8 +457,8 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
       {activeTab === 'trainers' && (
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
-            <h3 style={{ margin: 0, color: '#2d3d52' }}>إدارة المدربين</h3>
-            <button onClick={() => { resetTrainerForm(); setShowTrainerForm(true); }} disabled={showTrainerForm} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+            <h3 style={{ margin: 0, color: '#2d3d52', fontSize: '16px' }}>إدارة المدربين</h3>
+            <button onClick={() => { resetTrainerForm(); setShowTrainerForm(true); }} disabled={showTrainerForm} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
               ➕ إضافة مدرب
             </button>
           </div>
@@ -492,14 +515,49 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         </div>
       )}
 
-      {/* 4. قنوات التواصل */}
-      {activeTab === 'contact' && (
+      {/* 4. التسجيلات */}
+      {activeTab === 'registrations' && (
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ marginTop: 0, color: '#2d3d52' }}>إدارة بيانات التواصل والروابط</h3>
+          <h3 style={{ color: '#2d3d52', marginTop: 0, marginBottom: '15px', fontSize: '16px' }}>📝 قائمة التسجيلات الجديدة</h3>
+          {loadingRegs ? <p>جاري التحميل...</p> : registrations.length === 0 ? (
+            <p style={{ color: '#666', fontSize: '13px' }}>لا توجد تسجيلات حتى الآن.</p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#2d3d52', color: '#fff' }}>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>اسم الطالب</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>البريد الإلكتروني</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>رقم الهاتف</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>الكورس المطلوب</th>
+                    <th style={{ padding: '10px', textAlign: 'right' }}>تاريخ التسجيل</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {registrations.map((reg, idx) => (
+                    <tr key={reg.id || idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{reg.student_name}</td>
+                      <td style={{ padding: '10px' }}>{reg.email || '-'}</td>
+                      <td style={{ padding: '10px' }}>{reg.phone}</td>
+                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#8b44db' }}>{reg.course_title}</td>
+                      <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>{new Date(reg.created_at).toLocaleString('ar-EG')}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 5. قنوات التواصل */}
+      {activeTab === 'contact_channels' && (
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ marginTop: 0, color: '#2d3d52', fontSize: '16px' }}>إدارة بيانات التواصل والروابط</h3>
           <form onSubmit={handleSaveContact} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginTop: '15px' }}>
             {Object.keys(contactData).map((key) => (
               <div key={key}>
-                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', textTransform: 'capitalize' }}>{key}:</label>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', textTransform: 'capitalize', fontSize: '13px' }}>{key}:</label>
                 <input 
                   type="text" 
                   value={(contactData as any)[key] || ''} 
@@ -517,11 +575,11 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         </div>
       )}
 
-      {/* 5. الرسائل الواردة */}
+      {/* 6. الرسائل الواردة */}
       {activeTab === 'messages' && (
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ marginTop: 0, color: '#2d3d52' }}>رسائل استفسارات العملاء</h3>
-          {messages.length === 0 ? <p>لا توجد رسائل.</p> : (
+          <h3 style={{ marginTop: 0, color: '#2d3d52', fontSize: '16px' }}>رسائل استفسارات العملاء</h3>
+          {messages.length === 0 ? <p style={{ fontSize: '13px', color: '#666' }}>لا توجد رسائل.</p> : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
               {messages.map(m => (
                 <div key={m.id} style={{ backgroundColor: '#f1f5f9', padding: '15px', borderRadius: '8px', borderRight: '4px solid #8b44db' }}>
@@ -529,7 +587,7 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
                     <strong>{m.sender_name} ({m.sender_email})</strong>
                     <span style={{ fontSize: '12px', color: '#64748b' }}>{new Date(m.created_at).toLocaleString('ar-EG')}</span>
                   </div>
-                  <p style={{ margin: 0 }}>{m.message}</p>
+                  <p style={{ margin: 0, fontSize: '14px' }}>{m.message}</p>
                 </div>
               ))}
             </div>
@@ -537,26 +595,103 @@ export default function AdminDashboardScreen({ onBack }: AdminDashboardProps) {
         </div>
       )}
 
-      {/* 6. الإحصائيات */}
+      {/* 7. الإحصائيات المتقدمة */}
       {activeTab === 'analytics' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ marginTop: 0, color: '#2d3d52' }}>إحصائيات زيارات الموقع</h3>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
-                <th style={{ padding: '10px' }}>التاريخ</th>
-                <th style={{ padding: '10px' }}>عدد الزيارات</th>
-              </tr>
-            </thead>
-            <tbody>
-              {analytics.map(a => (
-                <tr key={a.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                  <td style={{ padding: '10px' }}>{a.visit_date}</td>
-                  <td style={{ padding: '10px', fontWeight: 'bold', color: '#8b44db' }}>{a.visitor_count} زيارة</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div>
+          <h3 style={{ color: '#2d3d52', marginBottom: '15px', fontSize: '18px' }}>لوحة دراسة وتقييم الأداء والزوار</h3>
+
+          {/* 1. البطاقات السريعة الأساسية */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #10b981', textAlign: 'center' }}>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>الزوار النشطون (الآن)</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#10b981' }}>{activeVisitorsCount} زائر نشط</span>
+            </div>
+
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #3b82f6', textAlign: 'center' }}>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>إجمالي التفاعلات / الزيارات</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2d3d52' }}>{totalVisitors}</span>
+            </div>
+
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #8b44db', textAlign: 'center' }}>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>تسجيلات الطلاب الكلية</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2d3d52' }}>{registrations.length}</span>
+            </div>
+          </div>
+
+          {/* 2. البطاقات التحليلية (أوقات الذروة وتوزيع الكورسات) */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginBottom: '25px' }}>
+            
+            {/* بطاقة وقت الذروة */}
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderTop: '4px solid #f59e0b' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#2d3d52', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                ⚡ وقت الذروة لنشاط الطلاب
+              </h4>
+              <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 10px 0' }}>الساعة الأكثر زيارة واستخداماً للمنصة:</p>
+              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#d97706' }}>
+                {peakHours}
+              </div>
+            </div>
+
+            {/* بطاقة توزيع الكورسات */}
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderTop: '4px solid #8b44db' }}>
+              <h4 style={{ margin: '0 0 10px 0', color: '#2d3d52', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                📚 توزيع الكورسات حسب الأقسام
+              </h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', color: '#334155' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>💻 المهارات الرقمية:</span> <strong>{categoryStats.digital} دورة</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>👔 المهارات المهنية:</span> <strong>{categoryStats.professional} دورة</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>🌱 المهارات الحياتية:</span> <strong>{categoryStats.life} دورة</strong>
+                </div>
+                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '2px', display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: 'bold' }}>
+                  <span>🟢 الكورسات النشطة حالياً:</span> <span>{activeCoursesCount} دورة</span>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          {/* 3. جدول تفاصيل الزيارات المتقدمة */}
+          <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+            <h4 style={{ color: '#2d3d52', marginTop: 0, marginBottom: '15px', fontSize: '15px' }}>
+              سجل تفاصيل وزوار المنصة (أماكن الزيارة والأجهزة المستخدمة)
+            </h4>
+
+            {analyticsList.length === 0 ? (
+              <p style={{ color: '#666', fontSize: '13px', margin: 0 }}>لا توجد بيانات تسجيل زيارات تفصيلية بعد.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#2d3d52', color: '#fff' }}>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>الصفحة / القسم الزائر</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>اسم المستخدم (إن وجد)</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>نوع الجهاز</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>المتصفح / النظام</th>
+                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>وقت الزيارة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analyticsList.map((item, index) => (
+                      <tr key={item.id || index} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
+                        <td style={{ padding: '10px', fontWeight: 'bold', color: '#8b44db' }}>{item.page_path || '/'}</td>
+                        <td style={{ padding: '10px', color: '#475569' }}>{item.user_name || 'زائر عام'}</td>
+                        <td style={{ padding: '10px', color: '#334155' }}>{item.device_type}</td>
+                        <td style={{ padding: '10px', color: '#334155' }}>{item.browser}</td>
+                        <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>
+                          {new Date(item.created_at).toLocaleString('ar-EG')}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
