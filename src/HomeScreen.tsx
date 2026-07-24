@@ -363,48 +363,35 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
               </button>
             </div>
 
-            {/* بطاقة معلومات التواصل مع صورة مصغرة للخريطة */}
+            {/* عرض صورة قاعة التدريب بالحجم الكبير مع الرابط الجديد */}
+            <div style={{ marginBottom: '15px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #cbd5e1', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
+              <div style={{ backgroundColor: '#2d3d52', color: '#fff', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🏫 نظرة على قاعة التدريب بمقر المركز
+              </div>
+              <img 
+                src="https://emgczjqpdwujbsfhjbtk.supabase.co/storage/v1/object/sign/trainers/Place.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV85OGU5N2MzOS01OGYzLTQwNjktOGQyMi02NmMyMTM1NzRlYjQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJ0cmFpbmVycy9QbGFjZS5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0OTAwMDY1LCJleHAiOjE5NDI1ODAwNjV9.huQEJImsWW13MpfnVb9yiD94W8J0Dppkq2Yqz0b8PRs" 
+                alt="قاعة التدريب" 
+                style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }} 
+              />
+            </div>
+
+            {/* بطاقة معلومات التواصل والعنوان */}
             <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '15px', border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
               {contactInfo?.phone && <div><strong>الهاتف:</strong> <span style={{ color: '#334155' }}>{contactInfo.phone}</span></div>}
               {contactInfo?.whatsapp && <div><strong>واتساب:</strong> <span style={{ color: '#10b981' }}>{contactInfo.whatsapp}</span></div>}
               {contactInfo?.email && <div style={{ gridColumn: 'span 2' }}><strong>البريد الإلكتروني:</strong> <span style={{ color: '#334155' }}>{contactInfo.email}</span></div>}
               
-              <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '4px' }}>
-                {/* صورة مصغرة تمثل الخريطة بموقع المركز (يمكن استبدال رابط الخلفية برابط صورة حقيقية لخريطة المكان إذا توفرت) */}
-                <a 
-                  href="https://maps.app.goo.gl/DKzBLUZ8ZjKCYTYT9?g_st=awb" 
-                  target="_blank" 
-                  rel="noreferrer" 
-                  style={{ 
-                    display: 'block', width: '75px', height: '55px', borderRadius: '6px', overflow: 'hidden', 
-                    border: '2px solid #cbd5e1', flexShrink: 0, position: 'relative',
-                    textDecoration: 'none', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
-                  }}
-                  title="اضغط لفتح الخريطة بحجم كامل"
-                >
-                  <div style={{ 
-                    width: '100%', height: '100%', 
-                    backgroundImage: 'url("https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=150&q=80")', 
-                    backgroundSize: 'cover', backgroundPosition: 'center',
-                    display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative'
-                  }}>
-                    {/* علامة دبوس الموقع (Pin) في منتصف الصورة المصغرة */}
-                    <span style={{ fontSize: '18px', filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))' }}>📍</span>
-                  </div>
-                </a>
-
-                <div>
-                  <strong>العنوان:</strong> <span style={{ color: '#334155' }}>{contactInfo?.address || 'أسوان - الشيخ هارون - بجوار مرور أسوان'}</span>
-                  <div style={{ marginTop: '4px' }}>
-                    <a 
-                      href="https://maps.app.goo.gl/DKzBLUZ8ZjKCYTYT9?g_st=awb" 
-                      target="_blank" 
-                      rel="noreferrer" 
-                      style={{ color: '#8b44db', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold' }}
-                    >
-                      🗺️ اضغط على الخريطة لعرض الموقع بوضوح
-                    </a>
-                  </div>
+              <div style={{ gridColumn: 'span 2', marginTop: '4px' }}>
+                <strong>العنوان:</strong> <span style={{ color: '#334155' }}>{contactInfo?.address || 'أسوان - الشيخ هارون - بجوار مرور أسوان'}</span>
+                <div style={{ marginTop: '4px' }}>
+                  <a 
+                    href="https://maps.app.goo.gl/DKzBLUZ8ZjKCYTYT9?g_st=awb" 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    style={{ color: '#8b44db', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    🗺️ اضغط هنا لفتح موقع المركز على الخريطة مباشرة
+                  </a>
                 </div>
               </div>
 
