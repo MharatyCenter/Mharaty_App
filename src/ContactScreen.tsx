@@ -38,6 +38,14 @@ export default function ContactScreen() {
             <div>
               <strong>العنوان:</strong>
               <p style={{ margin: '3px 0 0 0', color: '#555' }}>{contactData.address}</p>
+              <a 
+                href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(contactData.address)}`} 
+                target="_blank" 
+                rel="noreferrer" 
+                style={{ fontSize: '13px', color: '#3b82f6', textDecoration: 'underline', display: 'inline-block', marginTop: '4px' }}
+              >
+                فتح الموقع الجغرافي على خرائط جوجل
+              </a>
             </div>
           </div>
         )}

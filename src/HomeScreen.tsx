@@ -58,7 +58,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
   useEffect(() => {
     fetchData();
     fetchContactInfo();
-    trackVisitor(); // تتبع حركة الزائرين وتسجيلها في مهاراتي
+    trackVisitor(); 
   }, []);
 
   const fetchData = async () => {
@@ -96,7 +96,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
     }
   };
 
-  // دالة تتبع الزيارات اليومية وتحديثها ضمن مخطط mharaty
   const trackVisitor = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
@@ -125,7 +124,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
     }
   };
 
-  // دالة إرسال الاستفسار وحفظه في مخطط mharaty.contact_messages
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -168,7 +166,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
         </div>
       </header>
 
-      {/* القائمة الجانبية (مفعلة بالكامل) */}
+      {/* القائمة الجانبية */}
       <div style={{
         position: 'absolute', top: '65px', left: '15px', backgroundColor: '#2d3d52', borderRadius: '8px',
         boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '15px', display: isMenuOpen ? 'flex' : 'none',
@@ -176,7 +174,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
       }}>
         <span onClick={() => { setIsMenuOpen(false); }} style={{ cursor: 'pointer', fontWeight: 'bold', color: '#b967ff', fontSize: '14px' }}>الرئيسية</span>
         
-        {/* رابط المدربين المفعل */}
         <span 
           onClick={() => { 
             setIsMenuOpen(false); 
@@ -187,7 +184,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
           المدربين
         </span>
 
-        {/* رابط التواصل معنا المفعل */}
         <span 
           onClick={() => { 
             setIsMenuOpen(false); 
@@ -200,7 +196,6 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
 
         <div style={{ height: '1px', backgroundColor: '#4a5d78', margin: '5px 0' }}></div>
 
-        {/* 🔐 رابط دخول المشرفين الجديد داخل القائمة */}
         <span 
           onClick={() => {
             setIsMenuOpen(false);
@@ -351,7 +346,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
 
       </main>
 
-      {/* نافذة التواصل معنا الاحترافية والنموذج التفاعلي */}
+      {/* نافذة التواصل معنا والنموذج التفاعلي */}
       {showContactModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '16px', width: '100%', maxWidth: '480px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', direction: 'rtl', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
@@ -368,13 +363,52 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
               </button>
             </div>
 
-            {/* بطاقة معلومات التواصل السريعة */}
+            {/* بطاقة معلومات التواصل مع صورة مصغرة للخريطة */}
             <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '15px', border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
               {contactInfo?.phone && <div><strong>الهاتف:</strong> <span style={{ color: '#334155' }}>{contactInfo.phone}</span></div>}
               {contactInfo?.whatsapp && <div><strong>واتساب:</strong> <span style={{ color: '#10b981' }}>{contactInfo.whatsapp}</span></div>}
               {contactInfo?.email && <div style={{ gridColumn: 'span 2' }}><strong>البريد الإلكتروني:</strong> <span style={{ color: '#334155' }}>{contactInfo.email}</span></div>}
-              {contactInfo?.address && <div style={{ gridColumn: 'span 2' }}><strong>العنوان:</strong> <span style={{ color: '#334155' }}>{contactInfo.address}</span></div>}
-              {contactInfo?.working_hours && <div style={{ gridColumn: 'span 2' }}><strong>ساعات العمل:</strong> <span style={{ color: '#334155' }}>{contactInfo.working_hours}</span></div>}
+              
+              <div style={{ gridColumn: 'span 2', display: 'flex', alignItems: 'flex-start', gap: '10px', marginTop: '4px' }}>
+                {/* صورة مصغرة تمثل الخريطة بموقع المركز (يمكن استبدال رابط الخلفية برابط صورة حقيقية لخريطة المكان إذا توفرت) */}
+                <a 
+                  href="https://maps.app.goo.gl/DKzBLUZ8ZjKCYTYT9?g_st=awb" 
+                  target="_blank" 
+                  rel="noreferrer" 
+                  style={{ 
+                    display: 'block', width: '75px', height: '55px', borderRadius: '6px', overflow: 'hidden', 
+                    border: '2px solid #cbd5e1', flexShrink: 0, position: 'relative',
+                    textDecoration: 'none', boxShadow: '0 2px 4px rgba(0,0,0,0.1)'
+                  }}
+                  title="اضغط لفتح الخريطة بحجم كامل"
+                >
+                  <div style={{ 
+                    width: '100%', height: '100%', 
+                    backgroundImage: 'url("https://images.unsplash.com/photo-1526778548025-fa2f459cd5c1?auto=format&fit=crop&w=150&q=80")', 
+                    backgroundSize: 'cover', backgroundPosition: 'center',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', position: 'relative'
+                  }}>
+                    {/* علامة دبوس الموقع (Pin) في منتصف الصورة المصغرة */}
+                    <span style={{ fontSize: '18px', filter: 'drop-shadow(0 2px 2px rgba(0,0,0,0.5))' }}>📍</span>
+                  </div>
+                </a>
+
+                <div>
+                  <strong>العنوان:</strong> <span style={{ color: '#334155' }}>{contactInfo?.address || 'أسوان - الشيخ هارون - بجوار مرور أسوان'}</span>
+                  <div style={{ marginTop: '4px' }}>
+                    <a 
+                      href="https://maps.app.goo.gl/DKzBLUZ8ZjKCYTYT9?g_st=awb" 
+                      target="_blank" 
+                      rel="noreferrer" 
+                      style={{ color: '#8b44db', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold' }}
+                    >
+                      🗺️ اضغط على الخريطة لعرض الموقع بوضوح
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {contactInfo?.working_hours && <div style={{ gridColumn: 'span 2', marginTop: '4px' }}><strong>ساعات العمل:</strong> <span style={{ color: '#334155' }}>{contactInfo.working_hours}</span></div>}
             </div>
 
             {/* أيقونات السوشيال ميديا */}
