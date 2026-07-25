@@ -525,7 +525,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
                 </button>
               </div>
             </form>
-
+ 
           </div>
         </div>
       )}

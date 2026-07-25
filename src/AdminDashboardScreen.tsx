@@ -17,6 +17,18 @@ interface Course {
   month_3: boolean;
 }
 
+interface EventItem {
+  id: number;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  location: string | null;
+  category: string | null;
+  is_active: boolean | null;
+  speaker: string | null;
+  created_at: string;
+}
+
 interface Registration {
   id: number;
   course_title: string;
@@ -100,6 +112,21 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   const [month2, setMonth2] = useState(false);
   const [month3, setMonth3] = useState(false);
 
+  // حالات الفعاليات (Events)
+  const [eventsList, setEventsList] = useState<EventItem[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [isSavingEvent, setIsSavingEvent] = useState(false);
+
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+  const [eventCategory, setEventCategory] = useState('general');
+  const [eventSpeaker, setEventSpeaker] = useState('');
+  const [eventIsActive, setEventIsActive] = useState(false);
+
   // حالات المسجلين
   const [registrations, setRegistrations] = useState<Registration[]>([]);
   const [loadingRegs, setLoadingRegs] = useState(false);
@@ -148,6 +175,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
     setLoadingCourses(true);
     setLoadingRegs(true);
     setLoadingTrainers(true);
+    setLoadingEvents(true);
 
     await Promise.all([
       supabase.schema('mharaty').from('courses').select('*').order('id', { ascending: false }).then(({ data }) => {
@@ -161,6 +189,10 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
           setActiveCoursesCount(activeCount);
         }
         setLoadingCourses(false);
+      }),
+      supabase.schema('mharaty').from('events').select('*').order('id', { ascending: false }).then(({ data }) => {
+        if (data) setEventsList(data);
+        setLoadingEvents(false);
       }),
       supabase.schema('mharaty').from('course_registrations').select('*').order('created_at', { ascending: false }).then(({ data }) => {
         if (data) setRegistrations(data);
@@ -257,7 +289,6 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   };
 
   const handleDeleteCourse = async (id: number) => {
-    if (!window.confirm('هل أنت متأكد من الحذف؟')) return;
     const { error } = await supabase.schema('mharaty').from('courses').delete().eq('id', id);
     if (!error) {
       showNotification('🗑️ تم الحذف بنجاح', 'success');
@@ -272,6 +303,70 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
     setTitle(''); setDuration(''); setLevel('مبتدئ'); setDescription(''); setCategory('digital');
     setIsActive(false); setProgress(0); setPerformance(''); setMonth1(false); setMonth2(false); setMonth3(false);
     setShowCourseForm(false);
+  };
+
+  // دوال إدارة الفعاليات (Events)
+  const handleSaveEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingEvent(true);
+    const payload = {
+      title: eventTitle,
+      description: eventDescription,
+      event_date: eventDate ? new Date(eventDate).toISOString() : null,
+      location: eventLocation,
+      category: eventCategory,
+      speaker: eventSpeaker,
+      is_active: eventIsActive
+    };
+
+    const query = editingEventId
+      ? supabase.schema('mharaty').from('events').update(payload).eq('id', editingEventId)
+      : supabase.schema('mharaty').from('events').insert([payload]);
+
+    const { error } = await query;
+    setIsSavingEvent(false);
+
+    if (error) {
+      showNotification('خطأ: ' + error.message, 'error');
+    } else {
+      showNotification('✅ تم حفظ الفعالية بنجاح!', 'success');
+      resetEventForm();
+      fetchAllData();
+    }
+  };
+
+  const handleEditEventClick = (ev: EventItem) => {
+    setEditingEventId(ev.id);
+    setEventTitle(ev.title);
+    setEventDescription(ev.description || '');
+    setEventDate(ev.event_date ? ev.event_date.substring(0, 16) : '');
+    setEventLocation(ev.location || '');
+    setEventCategory(ev.category || 'general');
+    setEventSpeaker(ev.speaker || '');
+    setEventIsActive(ev.is_active ?? false);
+    setShowEventForm(true);
+  };
+
+  const handleDeleteEvent = async (id: number) => {
+    const { error } = await supabase.schema('mharaty').from('events').delete().eq('id', id);
+    if (!error) {
+      showNotification('🗑️ تم حذف الفعالية بنجاح', 'success');
+      fetchAllData();
+    } else {
+      showNotification('خطأ في حذف الفعالية', 'error');
+    }
+  };
+
+  const resetEventForm = () => {
+    setEditingEventId(null);
+    setEventTitle('');
+    setEventDescription('');
+    setEventDate('');
+    setEventLocation('');
+    setEventCategory('general');
+    setEventSpeaker('');
+    setEventIsActive(false);
+    setShowEventForm(false);
   };
 
   const handleSaveTrainer = async (e: React.FormEvent) => {
@@ -312,11 +407,12 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   };
 
   const handleDeleteTrainer = async (id: number) => {
-    if (!window.confirm('هل أنت متأكد من الحذف؟')) return;
     const { error } = await supabase.schema('mharaty').from('trainers').delete().eq('id', id);
     if (!error) {
       showNotification('🗑️ تم حذف المدرب', 'success');
       fetchAllData();
+    } else {
+      showNotification('خطأ في حذف المدرب', 'error');
     }
   };
 
@@ -360,7 +456,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
       <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {[
           { id: 'courses', label: `📘 إدارة الكورسات (${courses.length})` },
-          { id: 'events', label: '📢 الفعاليات' },
+          { id: 'events', label: `📢 الفعاليات (${eventsList.length})` },
           { id: 'trainers', label: `👨‍🏫 المدربين (${trainers.length})` },
           { id: 'registrations', label: `📝 التسجيلات (${registrations.length})` },
           { id: 'contact_channels', label: '📞 قنوات التواصل' },
@@ -445,11 +541,74 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
         </div>
       )}
 
-      {/* 2. الفعاليات */}
+      {/* 2. الفعاليات (Events Management) */}
       {activeTab === 'events' && (
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ marginTop: 0, color: '#2d3d52', fontSize: '16px' }}>📢 إدارة الفعاليات والأنشطة</h3>
-          <p style={{ color: '#64748b', fontSize: '13px' }}>قسم الفعاليات جاهز لإضافة وتنظيم الأنشطة القادمة.</p>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0, color: '#2d3d52', fontSize: '16px' }}>📢 إدارة الفعاليات والأنشطة</h3>
+            <button onClick={() => { resetEventForm(); setShowEventForm(true); }} disabled={showEventForm} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+              ➕ إضافة فعالية جديدة
+            </button>
+          </div>
+
+          {showEventForm && (
+            <form onSubmit={handleSaveEvent} style={{ backgroundColor: '#f1f5f9', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #cbd5e1' }}>
+              <h4 style={{ marginTop: 0, color: '#2d3d52' }}>{editingEventId ? '✏️ تعديل فعالية' : '✨ إضافة فعالية جديدة'}</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                <input type="text" placeholder="عنوان الفعالية" value={eventTitle} onChange={e => setEventTitle(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="اسم المتحدث" value={eventSpeaker} onChange={e => setEventSpeaker(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="datetime-local" value={eventDate} onChange={e => setEventDate(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="مكان انعقاد الفعالية" value={eventLocation} onChange={e => setEventLocation(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="التصنيف (مثال: general)" value={eventCategory} onChange={e => setEventCategory(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              </div>
+              <textarea placeholder="وصف تفصيلي للفعالية..." value={eventDescription} onChange={e => setEventDescription(e.target.value)} rows={3} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
+              <div style={{ marginBottom: '15px', fontSize: '14px' }}>
+                <label><input type="checkbox" checked={eventIsActive} onChange={e => setEventIsActive(e.target.checked)} /> فعالية نشطة / معروضة</label>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" disabled={isSavingEvent} style={{ backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ الفعالية</button>
+                <button type="button" onClick={resetEventForm} style={{ backgroundColor: '#94a3b8', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>إلغاء</button>
+              </div>
+            </form>
+          )}
+
+          {loadingEvents ? <p>جاري التحميل...</p> : eventsList.length === 0 ? (
+            <p style={{ color: '#666', fontSize: '13px' }}>لا توجد فعاليات مسجلة حتى الآن.</p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
+                    <th style={{ padding: '10px' }}>العنوان</th>
+                    <th style={{ padding: '10px' }}>المتحدث</th>
+                    <th style={{ padding: '10px' }}>التاريخ والوقت</th>
+                    <th style={{ padding: '10px' }}>المكان</th>
+                    <th style={{ padding: '10px' }}>الحالة</th>
+                    <th style={{ padding: '10px' }}>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventsList.map(ev => (
+                    <tr key={ev.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{ev.title}</td>
+                      <td style={{ padding: '10px' }}>{ev.speaker || '-'}</td>
+                      <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>
+                        {ev.event_date ? new Date(ev.event_date).toLocaleString('ar-EG') : '-'}
+                      </td>
+                      <td style={{ padding: '10px' }}>{ev.location || '-'}</td>
+                      <td style={{ padding: '10px' }}>
+                        {ev.is_active ? <span style={{ color: '#10b981' }}>نشط</span> : 'غير نشط'}
+                      </td>
+                      <td style={{ padding: '10px', display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleEditEventClick(ev)} style={{ backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>تعديل</button>
+                        <button onClick={() => handleDeleteEvent(ev.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>حذف</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 
@@ -600,91 +759,76 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
         <div>
           <h3 style={{ color: '#2d3d52', marginBottom: '15px', fontSize: '18px' }}>لوحة دراسة وتقييم الأداء والزوار</h3>
 
-          {/* 1. البطاقات السريعة الأساسية */}
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '20px' }}>
             <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #10b981', textAlign: 'center' }}>
               <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>الزوار النشطون (الآن)</span>
               <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#10b981' }}>{activeVisitorsCount} زائر نشط</span>
             </div>
-
             <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #3b82f6', textAlign: 'center' }}>
-              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>إجمالي التفاعلات / الزيارات</span>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2d3d52' }}>{totalVisitors}</span>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>إجمالي الزيارات المسجلة</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#3b82f6' }}>{totalVisitors} زيارة</span>
             </div>
-
             <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #8b44db', textAlign: 'center' }}>
-              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>تسجيلات الطلاب الكلية</span>
-              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#2d3d52' }}>{registrations.length}</span>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>ساعة الذروة للموقع</span>
+              <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#8b44db' }}>{peakHours}</span>
+            </div>
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #f59e0b', textAlign: 'center' }}>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>الكورسات النشطة حالياً</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b' }}>{activeCoursesCount} كورس</span>
             </div>
           </div>
 
-          {/* 2. البطاقات التحليلية (أوقات الذروة وتوزيع الكورسات) */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginBottom: '25px' }}>
-            
-            {/* بطاقة وقت الذروة */}
-            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderTop: '4px solid #f59e0b' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#2d3d52', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                ⚡ وقت الذروة لنشاط الطلاب
-              </h4>
-              <p style={{ color: '#64748b', fontSize: '12px', margin: '0 0 10px 0' }}>الساعة الأكثر زيارة واستخداماً للمنصة:</p>
-              <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#d97706' }}>
-                {peakHours}
-              </div>
-            </div>
-
-            {/* بطاقة توزيع الكورسات */}
-            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderTop: '4px solid #8b44db' }}>
-              <h4 style={{ margin: '0 0 10px 0', color: '#2d3d52', fontSize: '15px', display: 'flex', alignItems: 'center', gap: '6px' }}>
-                📚 توزيع الكورسات حسب الأقسام
-              </h4>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', fontSize: '13px', color: '#334155' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>💻 المهارات الرقمية:</span> <strong>{categoryStats.digital} دورة</strong>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#2d3d52', fontSize: '15px' }}>📂 توزيع الكورسات حسب التصنيفات</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                  <span>الكورسات الرقمية (Digital):</span>
+                  <strong style={{ color: '#3b82f6' }}>{categoryStats.digital}</strong>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>👔 المهارات المهنية:</span> <strong>{categoryStats.professional} دورة</strong>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                  <span>الكورسات المهنية (Professional):</span>
+                  <strong style={{ color: '#10b981' }}>{categoryStats.professional}</strong>
                 </div>
-                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span>🌱 المهارات الحياتية:</span> <strong>{categoryStats.life} دورة</strong>
-                </div>
-                <div style={{ borderTop: '1px solid #e2e8f0', paddingTop: '6px', marginTop: '2px', display: 'flex', justifyContent: 'space-between', color: '#10b981', fontWeight: 'bold' }}>
-                  <span>🟢 الكورسات النشطة حالياً:</span> <span>{activeCoursesCount} دورة</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                  <span>كورسات مهارات الحياة (Life):</span>
+                  <strong style={{ color: '#8b44db' }}>{categoryStats.life}</strong>
                 </div>
               </div>
             </div>
 
+            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#2d3d52', fontSize: '15px' }}>💡 ملاحظات وتوصيات النظام</h4>
+              <p style={{ color: '#475569', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
+                النظام يعمل بكفاءة عالية على قاعدة البيانات المخصصة (Schema: mharaty). تأكد دائماً من تحديث بيانات قنوات التواصل ومتابعة استفسارات العملاء أولاً باول لضمان أعلى معدل تفاعل على المنصة.
+              </p>
+            </div>
           </div>
 
-          {/* 3. جدول تفاصيل الزيارات المتقدمة */}
           <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
-            <h4 style={{ color: '#2d3d52', marginTop: 0, marginBottom: '15px', fontSize: '15px' }}>
-              سجل تفاصيل وزوار المنصة (أماكن الزيارة والأجهزة المستخدمة)
-            </h4>
-
+            <h4 style={{ margin: '0 0 15px 0', color: '#2d3d52', fontSize: '15px' }}>📈 أحدث تفاعلات وحركات الزوار على المنصة</h4>
             {analyticsList.length === 0 ? (
-              <p style={{ color: '#666', fontSize: '13px', margin: 0 }}>لا توجد بيانات تسجيل زيارات تفصيلية بعد.</p>
+              <p style={{ color: '#666', fontSize: '13px' }}>لا توجد بيانات إحصائية مسجلة حتى الآن.</p>
             ) : (
               <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'right', fontSize: '13px' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
                   <thead>
-                    <tr style={{ backgroundColor: '#2d3d52', color: '#fff' }}>
-                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>الصفحة / القسم الزائر</th>
-                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>اسم المستخدم (إن وجد)</th>
-                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>نوع الجهاز</th>
-                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>المتصفح / النظام</th>
-                      <th style={{ padding: '10px', borderBottom: '2px solid #cbd5e1' }}>وقت الزيارة</th>
+                    <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
+                      <th style={{ padding: '10px' }}>مسار الصفحة (Path)</th>
+                      <th style={{ padding: '10px' }}>نوع الجهاز</th>
+                      <th style={{ padding: '10px' }}>المتصفح</th>
+                      <th style={{ padding: '10px' }}>اسم المستخدم / زائر</th>
+                      <th style={{ padding: '10px' }}>وقت الزيارة</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {analyticsList.map((item, index) => (
-                      <tr key={item.id || index} style={{ borderBottom: '1px solid #e2e8f0', backgroundColor: index % 2 === 0 ? '#ffffff' : '#f8fafc' }}>
-                        <td style={{ padding: '10px', fontWeight: 'bold', color: '#8b44db' }}>{item.page_path || '/'}</td>
-                        <td style={{ padding: '10px', color: '#475569' }}>{item.user_name || 'زائر عام'}</td>
-                        <td style={{ padding: '10px', color: '#334155' }}>{item.device_type}</td>
-                        <td style={{ padding: '10px', color: '#334155' }}>{item.browser}</td>
-                        <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>
-                          {new Date(item.created_at).toLocaleString('ar-EG')}
-                        </td>
+                    {analyticsList.slice(0, 10).map((item, index) => (
+                      <tr key={item.id || index} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '10px', fontWeight: 'bold', color: '#3b82f6' }}>{item.page_path || '/'}</td>
+                        <td style={{ padding: '10px' }}>{item.device_type || 'غير معروف'}</td>
+                        <td style={{ padding: '10px' }}>{item.browser || 'غير معروف'}</td>
+                        <td style={{ padding: '10px' }}>{item.user_name || 'زائر عام'}</td>
+                        <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>{new Date(item.created_at).toLocaleString('ar-EG')}</td>
                       </tr>
                     ))}
                   </tbody>

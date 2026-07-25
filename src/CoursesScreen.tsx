@@ -98,7 +98,7 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
       if (error) {
         alert('حدث خطأ أثناء التسجيل: ' + error.message);
       } else {
-        alert('🎉 تم تسجيل طلبك بنجاح في الكورس! سنتواصل معك قريباً.');
+        // تم حذف رسالة الـ alert الخاصة بنجاح التسجيل بناءً على طلبك
         setIsRegisterModalOpen(false);
       }
     } catch (err) {
@@ -213,7 +213,6 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
           </button>
         </div>
 
-        {/* عرض نافذة التسجيل هنا أيضاً لتظهر فوراً داخل صفحة التفاصيل */}
         {renderRegisterModal()}
       </div>
     );
@@ -223,7 +222,6 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
   return (
     <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', position: 'relative' }}>
       
-      {/* الهيدر العلوي */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '30px', backgroundColor: '#2d3d52', padding: '15px 20px', borderRadius: '10px', color: '#fff' }}>
         <h2 style={{ margin: 0, fontSize: '20px' }}>📚 {categoryTitles[currentCategory]}</h2>
         <button 
@@ -234,7 +232,6 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
         </button>
       </div>
 
-      {/* محتوى الكورسات */}
       {loading ? (
         <p style={{ textAlign: 'center', color: '#666', fontSize: '16px', marginTop: '50px' }}>جاري تحميل الكورسات... 🔄</p>
       ) : courses.length === 0 ? (
@@ -283,7 +280,6 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
         </div>
       )}
 
-      {/* نافذة تسجيل بيانات المتدرب (Modal) للشاشة الرئيسية */}
       {renderRegisterModal()}
 
     </div>
