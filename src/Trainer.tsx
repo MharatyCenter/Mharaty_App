@@ -20,6 +20,7 @@ interface TrainerProps {
 export default function Trainer({ onBack }: TrainerProps) {
   const [trainers, setTrainers] = useState<Trainer[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [selectedTrainer, setSelectedTrainer] = useState<Trainer | null>(null);
 
   useEffect(() => {
@@ -29,6 +30,7 @@ export default function Trainer({ onBack }: TrainerProps) {
 
   const fetchTrainers = async () => {
     setLoading(true);
+    setLoadError(false);
     try {
       const { data, error } = await supabase
         .schema('mharaty')
@@ -37,11 +39,13 @@ export default function Trainer({ onBack }: TrainerProps) {
 
       if (error) {
         console.error('خطأ:', error.message);
+        setLoadError(true);
       } else {
         setTrainers(data || []);
       }
     } catch (err) {
       console.error('خطأ غير متوقع:', err);
+      setLoadError(true);
     } finally {
       setLoading(false);
     }
@@ -55,7 +59,7 @@ export default function Trainer({ onBack }: TrainerProps) {
   // شاشة تفاصيل السيرة الذاتية للمدرب
   if (selectedTrainer) {
     return (
-      <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', fontFamily: 'Tahoma, sans-serif' }}>
+      <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', backgroundColor: '#2d3d52', padding: '15px 20px', borderRadius: '10px', color: '#fff' }}>
           <h2 style={{ margin: 0, fontSize: '20px' }}>👨‍🏫 السيرة الذاتية للمدرب</h2>
           <button onClick={() => setSelectedTrainer(null)} style={{ backgroundColor: '#8b44db', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>العودة لجدول المدربين</button>
@@ -85,7 +89,7 @@ export default function Trainer({ onBack }: TrainerProps) {
   }
 
   return (
-    <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', position: 'relative', fontFamily: 'Tahoma, sans-serif' }}>
+    <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f4f6f8', minHeight: '100vh', position: 'relative' }}>
       
       {/* هيدر الصفحة */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px', backgroundColor: '#2d3d52', padding: '15px 20px', borderRadius: '10px', color: '#fff', flexWrap: 'wrap', gap: '10px' }}>
@@ -98,7 +102,12 @@ export default function Trainer({ onBack }: TrainerProps) {
 
       {/* جدول عرض المدربين */}
       {loading ? (
-        <p style={{ textAlign: 'center', color: '#666', fontSize: '16px', marginTop: '50px' }}>جاري التحميل... 🔄</p>
+        <p style={{ textAlign: 'center', color: '#666', fontSize: '16px', marginTop: '50px', animation: 'mh-pulse 1.2s ease infinite' }}>جاري التحميل...</p>
+      ) : loadError ? (
+        <div style={{ textAlign: 'center', marginTop: '60px', color: '#666' }}>
+          <p style={{ fontSize: '16px' }}>تعذر تحميل بيانات المدربين. تحقق من اتصالك بالإنترنت.</p>
+          <button onClick={fetchTrainers} style={{ backgroundColor: '#8b44db', color: '#fff', border: 'none', padding: '9px 22px', borderRadius: '8px', cursor: 'pointer', fontWeight: 'bold' }}>إعادة المحاولة</button>
+        </div>
       ) : trainers.length === 0 ? (
         <div style={{ textAlign: 'center', marginTop: '80px', color: '#666' }}>
           <p style={{ fontSize: '16px' }}>لا توجد بيانات مدربين مضافة حالياً.</p>

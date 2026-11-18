@@ -1,5 +1,8 @@
 import { useState, useEffect } from 'react';
 import { supabase } from './supabaseClient';
+import { uploadCourseImage } from './lib/images';
+import { downloadFullBackup } from './lib/backup';
+import RegistrationsManager from './RegistrationsManager';
 
 interface Course {
   id: number;
@@ -15,6 +18,11 @@ interface Course {
   month_1: boolean;
   month_2: boolean;
   month_3: boolean;
+  fee?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  schedule?: string | null;
+  image_url?: string | null;
 }
 
 interface EventItem {
@@ -26,15 +34,6 @@ interface EventItem {
   category: string | null;
   is_active: boolean | null;
   speaker: string | null;
-  created_at: string;
-}
-
-interface Registration {
-  id: number;
-  course_title: string;
-  student_name: string;
-  email: string;
-  phone: string;
   created_at: string;
 }
 
@@ -111,6 +110,12 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   const [month1, setMonth1] = useState(false);
   const [month2, setMonth2] = useState(false);
   const [month3, setMonth3] = useState(false);
+  const [fee, setFee] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [schedule, setSchedule] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
 
   // حالات الفعاليات (Events)
   const [eventsList, setEventsList] = useState<EventItem[]>([]);
@@ -128,8 +133,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   const [eventIsActive, setEventIsActive] = useState(false);
 
   // حالات المسجلين
-  const [registrations, setRegistrations] = useState<Registration[]>([]);
-  const [loadingRegs, setLoadingRegs] = useState(false);
+  const [regCount, setRegCount] = useState(0);
 
   // حالات المدربين
   const [trainers, setTrainers] = useState<Trainer[]>([]);
@@ -173,7 +177,6 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
 
   const fetchAllData = async () => {
     setLoadingCourses(true);
-    setLoadingRegs(true);
     setLoadingTrainers(true);
     setLoadingEvents(true);
 
@@ -193,10 +196,6 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
       supabase.schema('mharaty').from('events').select('*').order('id', { ascending: false }).then(({ data }) => {
         if (data) setEventsList(data);
         setLoadingEvents(false);
-      }),
-      supabase.schema('mharaty').from('course_registrations').select('*').order('created_at', { ascending: false }).then(({ data }) => {
-        if (data) setRegistrations(data);
-        setLoadingRegs(false);
       }),
       supabase.schema('mharaty').from('trainers').select('*').order('id', { ascending: false }).then(({ data }) => {
         if (data) {
@@ -252,7 +251,9 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
     const payload = { 
       title, instructor, duration, level, description, category, 
       is_active: isActive, progress_percentage: progress, trainees_performance: performance,
-      month_1: month1, month_2: month2, month_3: month3 
+      month_1: month1, month_2: month2, month_3: month3,
+      fee: fee === '' ? null : Number(fee), start_date: startDate || null, end_date: endDate || null, schedule: schedule.trim() || null,
+      image_url: imageUrl.trim() || null,
     };
 
     const query = editingCourseId 
@@ -285,10 +286,43 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
     setMonth1(c.month_1);
     setMonth2(c.month_2);
     setMonth3(c.month_3);
+    setFee(c.fee != null ? String(c.fee) : '');
+    setStartDate(c.start_date || '');
+    setEndDate(c.end_date || '');
+    setSchedule(c.schedule || '');
+    setImageUrl(c.image_url || '');
     setShowCourseForm(true);
   };
 
+  const handleImageFile = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const url = await uploadCourseImage(file);
+      setImageUrl(url);
+      showNotification('✅ تم رفع الصورة. اضغط «حفظ» لتثبيتها في الكورس.', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showNotification('تعذر رفع الصورة: ' + msg + ' (يمكنك لصق رابط صورة بدلاً من ذلك)', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const [backingUp, setBackingUp] = useState(false);
+  const handleBackup = async () => {
+    setBackingUp(true);
+    try {
+      const r = await downloadFullBackup();
+      if (!r.ok) showNotification('تعذر إنشاء النسخة الاحتياطية. تحقق من الاتصال وصلاحيات الدخول.', 'error');
+      else showNotification(`✅ تم تحميل النسخة الاحتياطية (${r.counts.course_registrations ?? 0} تسجيل، ${r.counts.courses ?? 0} كورس)` + (r.failed.length ? ` — تعذر جلب: ${r.failed.join('، ')}` : ''), r.failed.length ? 'error' : 'success');
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
   const handleDeleteCourse = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا الكورس؟ لا يمكن التراجع عن هذا الإجراء.')) return;
     const { error } = await supabase.schema('mharaty').from('courses').delete().eq('id', id);
     if (!error) {
       showNotification('🗑️ تم الحذف بنجاح', 'success');
@@ -302,6 +336,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
     setEditingCourseId(null);
     setTitle(''); setDuration(''); setLevel('مبتدئ'); setDescription(''); setCategory('digital');
     setIsActive(false); setProgress(0); setPerformance(''); setMonth1(false); setMonth2(false); setMonth3(false);
+    setFee(''); setStartDate(''); setEndDate(''); setSchedule(''); setImageUrl('');
     setShowCourseForm(false);
   };
 
@@ -348,6 +383,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   };
 
   const handleDeleteEvent = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه الفعالية؟ لا يمكن التراجع عن هذا الإجراء.')) return;
     const { error } = await supabase.schema('mharaty').from('events').delete().eq('id', id);
     if (!error) {
       showNotification('🗑️ تم حذف الفعالية بنجاح', 'success');
@@ -407,6 +443,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   };
 
   const handleDeleteTrainer = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المدرب؟ لا يمكن التراجع عن هذا الإجراء.')) return;
     const { error } = await supabase.schema('mharaty').from('trainers').delete().eq('id', id);
     if (!error) {
       showNotification('🗑️ تم حذف المدرب', 'success');
@@ -436,14 +473,19 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   };
 
   return (
-    <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f8fafc', minHeight: '100vh', fontFamily: 'Tahoma, sans-serif' }}>
+    <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f8fafc', minHeight: '100vh' }}>
       
       {/* الهيدر وزر العودة */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#2d3d52', padding: '15px 25px', borderRadius: '12px', color: '#fff', marginBottom: '20px' }}>
-        <h2 style={{ margin: 0, fontSize: '18px' }}>⚙️ لوحة تحكم المشرفين - مهاراتي (Schema: mharaty)</h2>
-        <button onClick={handleBack} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
-          🏠 العودة للرئيسية / تسجيل خروج
-        </button>
+        <h2 style={{ margin: 0, fontSize: '18px' }}>⚙️ لوحة تحكم المشرفين - مهاراتي</h2>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={handleBackup} disabled={backingUp} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', opacity: backingUp ? 0.7 : 1 }}>
+            {backingUp ? 'جاري التجهيز...' : '💾 نسخة احتياطية'}
+          </button>
+          <button onClick={handleBack} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+            🚪 تسجيل الخروج
+          </button>
+        </div>
       </div>
 
       {statusMessage && (
@@ -458,7 +500,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
           { id: 'courses', label: `📘 إدارة الكورسات (${courses.length})` },
           { id: 'events', label: `📢 الفعاليات (${eventsList.length})` },
           { id: 'trainers', label: `👨‍🏫 المدربين (${trainers.length})` },
-          { id: 'registrations', label: `📝 التسجيلات (${registrations.length})` },
+          { id: 'registrations', label: `📝 المتدربون (${regCount})` },
           { id: 'contact_channels', label: '📞 قنوات التواصل' },
           { id: 'messages', label: `💬 الرسائل (${messages.length})` },
           { id: 'analytics', label: '📊 الإحصائيات المتقدمة' },
@@ -493,8 +535,27 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                 <input type="text" placeholder="المستوى" value={level} onChange={e => setLevel(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 <input type="text" placeholder="التصنيف (digital, professional, life)" value={category} onChange={e => setCategory(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 <input type="number" placeholder="نسبة الإنجاز %" value={progress} onChange={e => setProgress(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="number" min="0" placeholder="رسوم الكورس (جنيه)" value={fee} onChange={e => setFee(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <label style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', color: '#475569', gap: '3px' }}>
+                  موعد بدء الكورس
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', color: '#475569', gap: '3px' }}>
+                  موعد انتهاء الكورس
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </label>
+                <input type="text" placeholder="المواعيد (مثال: السبت والثلاثاء 8 مساءً)" value={schedule} onChange={e => setSchedule(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
               </div>
-              <textarea placeholder="وصف الكورس..." value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 15 }}>
+                {imageUrl ? <img src={imageUrl} alt="معاينة صورة الكورس" style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid #cbd5e1' }} /> : <div style={{ width: 96, height: 64, borderRadius: 8, border: '1px dashed #cbd5e1', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>بدون صورة</div>}
+                <input type="text" dir="ltr" placeholder="رابط صورة الكورس (اختياري)" value={imageUrl} onChange={e => setImageUrl(e.target.value)} style={{ flex: 1, minWidth: 180, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <label style={{ backgroundColor: '#8b44db', color: '#fff', padding: '8px 14px', borderRadius: 6, cursor: uploadingImage ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: 13, opacity: uploadingImage ? 0.7 : 1 }}>
+                  {uploadingImage ? 'جاري الرفع...' : '📷 رفع صورة'}
+                  <input type="file" accept="image/*" disabled={uploadingImage} onChange={e => { handleImageFile(e.target.files?.[0]); e.target.value = ''; }} style={{ display: 'none' }} />
+                </label>
+                {imageUrl && <button type="button" onClick={() => setImageUrl('')} style={{ background: '#e2e8f0', border: 'none', padding: '8px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>إزالة</button>}
+              </div>
+              <textarea placeholder="وصف الكورس..."  value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
               <textarea placeholder="أداء المتدربين..." value={performance} onChange={e => setPerformance(e.target.value)} rows={2} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
               <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '15px', fontSize: '14px' }}>
                 <label><input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} /> نشط حالياً</label>
@@ -517,6 +578,8 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                     <th style={{ padding: '10px' }}>العنوان</th>
                     <th style={{ padding: '10px' }}>المدرب</th>
                     <th style={{ padding: '10px' }}>التصنيف</th>
+                    <th style={{ padding: '10px' }}>الرسوم</th>
+                    <th style={{ padding: '10px' }}>البدء</th>
                     <th style={{ padding: '10px' }}>الحالة</th>
                     <th style={{ padding: '10px' }}>الإجراءات</th>
                   </tr>
@@ -527,6 +590,8 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                       <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.title}</td>
                       <td style={{ padding: '10px' }}>{c.instructor}</td>
                       <td style={{ padding: '10px', color: '#8b44db' }}>{c.category}</td>
+                      <td style={{ padding: '10px' }}>{c.fee ? `${c.fee} ج` : <span style={{ color: '#b45309' }}>غير محدد</span>}</td>
+                      <td style={{ padding: '10px' }}>{c.start_date || <span style={{ color: '#b45309' }}>غير محدد</span>}</td>
                       <td style={{ padding: '10px' }}>{c.is_active ? <span style={{ color: '#10b981' }}>نشط</span> : 'غير نشط'}</td>
                       <td style={{ padding: '10px', display: 'flex', gap: '8px' }}>
                         <button onClick={() => handleEditCourseClick(c)} style={{ backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>تعديل</button>
@@ -676,37 +741,10 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
 
       {/* 4. التسجيلات */}
       {activeTab === 'registrations' && (
-        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
-          <h3 style={{ color: '#2d3d52', marginTop: 0, marginBottom: '15px', fontSize: '16px' }}>📝 قائمة التسجيلات الجديدة</h3>
-          {loadingRegs ? <p>جاري التحميل...</p> : registrations.length === 0 ? (
-            <p style={{ color: '#666', fontSize: '13px' }}>لا توجد تسجيلات حتى الآن.</p>
-          ) : (
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ backgroundColor: '#2d3d52', color: '#fff' }}>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>اسم الطالب</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>البريد الإلكتروني</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>رقم الهاتف</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>الكورس المطلوب</th>
-                    <th style={{ padding: '10px', textAlign: 'right' }}>تاريخ التسجيل</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {registrations.map((reg, idx) => (
-                    <tr key={reg.id || idx} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{reg.student_name}</td>
-                      <td style={{ padding: '10px' }}>{reg.email || '-'}</td>
-                      <td style={{ padding: '10px' }}>{reg.phone}</td>
-                      <td style={{ padding: '10px', fontWeight: 'bold', color: '#8b44db' }}>{reg.course_title}</td>
-                      <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>{new Date(reg.created_at).toLocaleString('ar-EG')}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+        <RegistrationsManager
+          courses={courses.map((c) => ({ title: c.title, fee: c.fee, start_date: c.start_date, end_date: c.end_date, schedule: c.schedule }))}
+          onCountChange={setRegCount}
+        />
       )}
 
       {/* 5. قنوات التواصل */}

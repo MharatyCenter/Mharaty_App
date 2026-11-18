@@ -1,7 +1,13 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://emgczjqpdwujbsfhjbtk.supabase.co';
-const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImVtZ2N6anFwZHd1amJzZmhqYnRrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQzMTc0MzMsImV4cCI6MjA5OTg5MzQzM30.07z70CoFjKqpMKmZJmxCr7p0T2seSXFZ0G7DTxxwGfA';
+// القيم تُقرأ من ملف .env (انظر .env.example). مفتاح anon عام بطبيعته،
+// لكن الحماية الفعلية تتم عبر سياسات RLS في Supabase (انظر supabase/policies.sql).
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+if (!supabaseUrl || !supabaseKey) {
+  throw new Error('بيانات Supabase مفقودة: تأكد من وجود ملف .env (VITE_SUPABASE_URL و VITE_SUPABASE_ANON_KEY).');
+}
 
 export const supabase = createClient(supabaseUrl, supabaseKey, {
   db: {
