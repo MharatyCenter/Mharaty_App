@@ -248,3 +248,13 @@ insert into mharaty.message_templates (key, title, body) values
 يسعدنا انضمامك لأي من كورساتنا القادمة في أي وقت، ونتمنى لك التوفيق.
 مركز مهاراتي للتدريب$t$)
 on conflict (key) do nothing;
+
+
+-- منع التسجيل المكرر (نفس الرقم القومي في نفس الكورس)
+create unique index if not exists course_registrations_nid_course_key
+  on mharaty.course_registrations (national_id, lower(btrim(course_title)))
+  where status <> 'cancelled';
+
+
+-- صور الكورسات (يتطلب خدمة Storage في Supabase، وهي موجودة افتراضياً)
+alter table mharaty.courses add column if not exists image_url text;

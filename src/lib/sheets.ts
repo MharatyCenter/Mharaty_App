@@ -63,3 +63,39 @@ export async function sendStatusToSheet(clientId: string | null | undefined, sta
     return false;
   }
 }
+
+/** يطلب من سكربت الشيت نقل الصفوف المكتوبة يدوياً إلى التطبيق. الطلب يعود بعد انتهاء السكربت من عمله. */
+export async function requestSheetToApp(): Promise<boolean> {
+  if (!isSheetsEnabled) return false;
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ secret: SECRET, action: 'sync_to_app' }),
+    });
+    return true;
+  } catch (err) {
+    console.error('تعذر طلب المزامنة من الشيت:', err);
+    return false;
+  }
+}
+
+export interface SheetBackfillRow extends RegistrationPayload {
+  status: string; // اسم الحالة بالعربية كما في الشيت
+  notes: string;
+  created_at: string;
+}
+
+/** يرسل دفعة (حتى 50) من متدربي التطبيق إلى الشيت. المكرر يتخطاه السكربت تلقائياً. */
+export async function sendBackfillBatch(rows: SheetBackfillRow[]): Promise<boolean> {
+  if (!isSheetsEnabled || rows.length === 0) return false;
+  try {
+    await fetch(WEBHOOK_URL, {
+      method: 'POST', mode: 'no-cors', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify({ secret: SECRET, action: 'backfill_batch', rows }),
+    });
+    return true;
+  } catch (err) {
+    console.error('تعذر نقل الدفعة إلى الشيت:', err);
+    return false;
+  }
+}
