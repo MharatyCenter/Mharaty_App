@@ -6,6 +6,7 @@ import { useToast } from './ui/Toast';
 import RegistrationsSummary from './ui/RegistrationsSummary';
 import EditRegistrationModal from './ui/EditRegistrationModal';
 import BroadcastModal from './ui/BroadcastModal';
+import ReportsModal from './ui/ReportsModal';
 import {
   DEFAULT_TEMPLATES, MESSAGE_META, MESSAGE_ORDER, PAYMENT_PLACEHOLDER_MARK, PLACEHOLDERS, STATUS_META, STATUS_ORDER,
   daysUntil, fillTemplate, formatArabicDate,
@@ -79,6 +80,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [editing, setEditing] = useState<RegistrationRow | null>(null);
   const [showBroadcast, setShowBroadcast] = useState(false);
+  const [showReports, setShowReports] = useState(false);
   const [syncBusy, setSyncBusy] = useState<'' | 'from' | 'to'>('');
   const [syncProgress, setSyncProgress] = useState('');
 
@@ -389,6 +391,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button onClick={() => setShowTemplates((v) => !v)} style={btn('#8b44db')}>✏️ قوالب الرسائل</button>
           <button onClick={() => setShowBroadcast(true)} style={btn('#25d366')}>📣 رسالة جماعية</button>
+          <button onClick={() => setShowReports(true)} style={btn('#0f766e')}>🖨️ تقارير PDF / Excel</button>
           {isSheetsEnabled && sheetsViewUrl && (
             <a href={sheetsViewUrl} target="_blank" rel="noreferrer" style={{ ...btn('#10b981'), textDecoration: 'none', display: 'inline-block' }}>📊 فتح Google Sheet</a>
           )}
@@ -454,6 +457,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
         </div>
       )}
 
+      <ReportsModal open={showReports} regs={rows} courses={courses} courseTitles={courseTitles} onClose={() => setShowReports(false)} />
       <BroadcastModal open={showBroadcast} rows={rows} courseTitles={courseTitles} onClose={() => setShowBroadcast(false)} />
 
       {!loading && !loadError && <RegistrationsSummary rows={rows} />}
