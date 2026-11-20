@@ -27,8 +27,6 @@ function syncRows_(interactive) {
         if (!name && !nid && !phone && !course) continue;               // صف فارغ
         var rowNo = i + 2, missing = [];
         if (!name) missing.push('الاسم');
-        if (nid.length !== 14) missing.push('الرقم القومي (14 رقماً)');
-        if (!phone) missing.push('واتساب');
         if (!course) missing.push('الكورس');
         if (missing.length) { res.skipped.push('صف ' + rowNo + ': ينقصه ' + missing.join('، ')); continue; }
         if (/^1[0125]\d{8}$/.test(phone)) phone = '0' + phone;          // الشيت يحذف الصفر الأول من الأرقام

@@ -1,0 +1,559 @@
+import { useEffect, useState } from 'react';
+import logoImg from './logo.png'; 
+import { supabase } from './supabaseClient';
+import { useToast } from './ui/Toast';
+import { useIsMobile } from './ui/useIsMobile';
+import BottomNav from './ui/BottomNav';
+import FeaturedCourses from './ui/FeaturedCourses';
+import { centerWhatsAppLink } from './lib/center';
+
+interface Course {
+  id: number;
+  title: string;
+  instructor: string;
+  duration: string;
+  level: string;
+  description: string;
+  category: 'digital' | 'professional' | 'life';
+  is_active: boolean;
+  month_1: boolean;
+  month_2: boolean;
+  month_3: boolean;
+  fee?: number | null;
+  start_date?: string | null;
+  image_url?: string | null;
+}
+
+interface EventItem {
+  id: number;
+  title: string;
+  description: string;
+  icon: string;
+  border_color: string;
+  bg_color: string;
+}
+
+interface ContactInfo {
+  phone?: string;
+  whatsapp?: string;
+  facebook?: string;
+  youtube?: string;
+  instagram?: string;
+  telegram?: string;
+  email?: string;
+  website?: string;
+  address?: string;
+  working_hours?: string;
+}
+
+interface HomeScreenProps {
+  onNavigateToCategory: (category: 'digital' | 'professional' | 'life') => void;
+  onNavigateToTrainer?: () => void;
+  onOpenAdminLogin?: () => void;
+}
+
+function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogin }: HomeScreenProps) {
+  const toast = useToast();
+  const isMobile = useIsMobile();
+  const [activeTab, setActiveTab] = useState('home');
+  const [loadingHome, setLoadingHome] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [activeCourses, setActiveCourses] = useState<Course[]>([]);
+  const [planCourses, setPlanCourses] = useState<Course[]>([]);
+  const [eventsList, setEventsList] = useState<EventItem[]>([]);
+
+  const [isQuarterPlanOpen, setIsQuarterPlanOpen] = useState(true);
+  const [isEventsOpen, setIsEventsOpen] = useState(true);
+
+  const [showContactModal, setShowContactModal] = useState(false);
+  const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
+
+  const [senderName, setSenderName] = useState('');
+  const [senderEmail, setSenderEmail] = useState('');
+  const [senderMessage, setSenderMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitSuccess, setSubmitSuccess] = useState(false);
+
+  const loadAll = async () => {
+    setLoadingHome(true);
+    setLoadFailed(false);
+    const results = await Promise.all([fetchData(), fetchEvents(), fetchContactInfo()]);
+    setLoadFailed(results.every((ok) => !ok));
+    setLoadingHome(false);
+  };
+
+  useEffect(() => {
+    loadAll();
+    trackVisitorAdvanced(); // تسجيل الزيارة مرة واحدة لكل جلسة
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fetchData = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .from('courses')
+        .select('*');
+
+      if (error) {
+        console.error('خطأ في جلب البيانات:', error.message);
+        return false;
+      }
+      const allCourses = data || [];
+      setActiveCourses(allCourses.filter(c => c.is_active));
+      setPlanCourses(allCourses.filter(c => c.month_1 || c.month_2 || c.month_3));
+      return true;
+    } catch (err) {
+      console.error('خطأ غير متوقع:', err);
+      return false;
+    }
+  };
+
+  const fetchEvents = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .schema('mharaty')
+        .from('events')
+        .select('*');
+
+      if (error) return false;
+      setEventsList(data || []);
+      return true;
+    } catch (err) {
+      console.error('خطأ في جلب الفعاليات:', err);
+      return false;
+    }
+  };
+
+  const fetchContactInfo = async (): Promise<boolean> => {
+    try {
+      const { data, error } = await supabase
+        .schema('mharaty')
+        .from('contact_info')
+        .select('*')
+        .eq('id', 1)
+        .maybeSingle();
+
+      if (error) return false;
+      if (data) setContactInfo(data);
+      return true;
+    } catch (err) {
+      console.error('خطأ في جلب بيانات التواصل:', err);
+      return false;
+    }
+  };
+
+  // دالة تسجيل الزيارات المتقدمة لتغذية الجدول في لوحة التحكم
+  const trackVisitorAdvanced = async () => {
+    try {
+      if (sessionStorage.getItem('mharaty_tracked')) return;
+      sessionStorage.setItem('mharaty_tracked', '1');
+      const userAgent = navigator.userAgent;
+      let deviceType = 'مكتبى (Desktop)';
+      if (/Mobi|Android/i.test(userAgent)) {
+        deviceType = 'جوال (Mobile)';
+      } else if (/Tablet|iPad/i.test(userAgent)) {
+        deviceType = 'تابلت (Tablet)';
+      }
+
+      let browser = 'متصفح غير معروف';
+      if (userAgent.indexOf('Firefox') > -1) browser = 'Firefox';
+      else if (userAgent.indexOf('SamsungBrowser') > -1) browser = 'Samsung Browser';
+      else if (userAgent.indexOf('Opera') > -1 || userAgent.indexOf('OPR') > -1) browser = 'Opera';
+      else if (userAgent.indexOf('Trident') > -1) browser = 'Internet Explorer';
+      else if (userAgent.indexOf('Edge') > -1) browser = 'MS Edge';
+      else if (userAgent.indexOf('Chrome') > -1) browser = 'Chrome';
+      else if (userAgent.indexOf('Safari') > -1) browser = 'Safari';
+
+      let os = 'نظام غير معروف';
+      if (userAgent.indexOf('Win') !== -1) os = 'Windows';
+      else if (userAgent.indexOf('Mac') !== -1) os = 'MacOS';
+      else if (userAgent.indexOf('Linux') !== -1) os = 'Linux';
+      else if (userAgent.indexOf('Android') !== -1) os = 'Android';
+      else if (userAgent.indexOf('like Mac') !== -1) os = 'iOS';
+
+      // إرسال البيانات المتقدمة إلى جدول site_analytics_advanced
+      await supabase
+        .schema('mharaty')
+        .from('site_analytics_advanced')
+        .insert([
+          {
+            page_path: window.location.pathname || '/home',
+            device_type: deviceType,
+            browser: `${browser} / ${os}`,
+            user_name: localStorage.getItem('mharaty_user_name') || null
+          }
+        ]);
+    } catch (err) {
+      console.error('خطأ في تسجيل تفاصيل الزيارة:', err);
+    }
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSubmitting) return;
+    if (!navigator.onLine) {
+      toast.error('لا يوجد اتصال بالإنترنت. حاول مرة أخرى عند عودة الاتصال.');
+      return;
+    }
+    setIsSubmitting(true);
+    
+    try {
+      const { error } = await supabase
+        .schema('mharaty')
+        .from('contact_messages')
+        .insert([{ sender_name: senderName, sender_email: senderEmail, message: senderMessage }]);
+
+      if (error) throw error;
+
+      setSubmitSuccess(true);
+      setSenderName('');
+      setSenderEmail('');
+      setSenderMessage('');
+      setTimeout(() => setSubmitSuccess(false), 4000);
+    } catch (err) {
+      console.error('خطأ في إرسال الرسالة:', err);
+      toast.error('حدث خطأ أثناء إرسال الرسالة، يرجى المحاولة مرة أخرى.');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  return (
+    <div style={{ direction: 'rtl', textAlign: 'right', padding: '15px', paddingBottom: isMobile ? 80 : 15, backgroundColor: '#f4f6f8', minHeight: '100vh', position: 'relative' }}>
+      
+      {/* الهيدر */}
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#2d3d52', padding: '10px 20px', borderRadius: '10px', boxShadow: '0 2px 4px rgba(0,0,0,0.1)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <img src={logoImg} alt="Mharaty Logo" style={{ height: '38px', width: 'auto', borderRadius: '4px' }} />
+          <h1 style={{ color: '#fff', margin: 0, fontSize: '18px', fontWeight: 'bold' }}>MHARATY</h1>
+        </div>
+
+        <div role="button" tabIndex={0} aria-label="القائمة" aria-expanded={isMenuOpen} onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') setIsMenuOpen(!isMenuOpen); }} onClick={() => setIsMenuOpen(!isMenuOpen)} style={{ display: 'flex', flexDirection: 'column', gap: '5px', cursor: 'pointer', padding: '10px' }}>
+          <span style={{ width: '22px', height: '3px', backgroundColor: '#fff', borderRadius: '2px' }}></span>
+          <span style={{ width: '22px', height: '3px', backgroundColor: '#fff', borderRadius: '2px' }}></span>
+          <span style={{ width: '22px', height: '3px', backgroundColor: '#fff', borderRadius: '2px' }}></span>
+        </div>
+      </header>
+
+      {/* القائمة الجانبية */}
+      <div style={{
+        position: 'absolute', top: '65px', left: '15px', backgroundColor: '#2d3d52', borderRadius: '8px',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.15)', padding: '15px', display: isMenuOpen ? 'flex' : 'none',
+        flexDirection: 'column', gap: '12px', zIndex: 100, minWidth: '160px', border: '1px solid #4a5d78'
+      }}>
+        <span onClick={() => { setIsMenuOpen(false); }} style={{ cursor: 'pointer', fontWeight: 'bold', color: '#b967ff', fontSize: '14px' }}>الرئيسية</span>
+        
+        <span 
+          onClick={() => { 
+            setIsMenuOpen(false); 
+            if (onNavigateToTrainer) onNavigateToTrainer(); 
+          }} 
+          style={{ cursor: 'pointer', color: '#ccc', fontSize: '14px' }}
+        >
+          المدربين
+        </span>
+
+        <span 
+          onClick={() => { 
+            setIsMenuOpen(false); 
+            setShowContactModal(true); 
+          }} 
+          style={{ cursor: 'pointer', color: '#ccc', fontSize: '14px' }}
+        >
+          التواصل معنا
+        </span>
+
+        <div style={{ height: '1px', backgroundColor: '#4a5d78', margin: '5px 0' }}></div>
+
+        <span 
+          onClick={() => {
+            setIsMenuOpen(false);
+            if (onOpenAdminLogin) onOpenAdminLogin();
+          }}
+          style={{ cursor: 'pointer', color: '#10b981', fontWeight: 'bold', fontSize: '14px' }}
+        >
+          دخول المشرفين
+        </span>
+
+      </div>
+
+      <main style={{ marginTop: '20px' }}>
+
+        {loadFailed && !loadingHome && (
+          <div role="alert" style={{ backgroundColor: '#fee2e2', color: '#991b1b', padding: '12px 15px', borderRadius: '10px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px', flexWrap: 'wrap', fontSize: '14px', fontWeight: 'bold' }}>
+            <span>⚠️ تعذر تحميل البيانات. تحقق من اتصالك بالإنترنت.</span>
+            <button onClick={loadAll} style={{ backgroundColor: '#dc2626', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>إعادة المحاولة</button>
+          </div>
+        )}
+
+        {/* قسم الترحيب */}
+        <section style={{ backgroundColor: '#2d3d52', color: '#fff', padding: '25px 20px', borderRadius: '12px', marginBottom: '30px', borderRight: '5px solid #b967ff', backgroundImage: 'linear-gradient(135deg, #2d3d52 60%, #8b44db 100%)' }}>
+          <h2 style={{ fontSize: '20px', margin: '0 0 10px 0' }}>مرحباً بك في منصة مهاراتي التعليمية 👋</h2>
+          <p style={{ fontSize: '14px', opacity: 0.9, margin: 0, lineHeight: '1.5' }}>طوّر مهاراتك اليوم وافتح آفاقاً جديدة لمستقبلك المهني من خلال دورات تدريبية متخصصة.</p>
+          <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+            <button onClick={() => document.getElementById('mh-catalog')?.scrollIntoView({ behavior: 'smooth' })} style={{ background: '#fff', color: 'var(--mh-navy)', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer', fontSize: 14 }}>📚 تصفح الكورسات وسجّل</button>
+            {centerWhatsAppLink('x') && <a href={centerWhatsAppLink('مرحباً، أريد الاستفسار عن كورسات مركز مهاراتي')} target="_blank" rel="noopener noreferrer" style={{ background: '#25d366', color: '#fff', padding: '10px 18px', borderRadius: 10, fontWeight: 'bold', textDecoration: 'none', fontSize: 14 }}>💬 استفسر عبر واتساب</a>}
+          </div>
+        </section>
+
+        <FeaturedCourses courses={activeCourses} loading={loadingHome} onOpen={(c) => onNavigateToCategory(c.category)} />
+
+        {/* 1. كتالوج الكورسات */}
+        <h2 id="mh-catalog" style={{ color: '#2d3d52', fontSize: '18px', marginBottom: '15px', borderBottom: '2px solid #2d3d52', paddingBottom: '5px', width: 'fit-content', scrollMarginTop: 12 }}>📚 كتالوج الكورسات</h2>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '15px', marginBottom: '40px' }}>
+          
+          <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 3px 8px rgba(0,0,0,0.04)', borderTop: '4px solid #8b44db', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ width: '50px', height: '50px', backgroundColor: '#f3e8ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '10px' }}>💻</div>
+            <h3 style={{ margin: '0 0 8px 0', color: '#2d3d52', fontSize: '16px' }}>مهارات رقمية</h3>
+            <p style={{ color: '#666', fontSize: '13px', margin: '0 0 15px 0', minHeight: '36px', lineHeight: '1.4' }}>تشمل البرمجة، تطوير الويب (React & Supabase)، التصميم الرقمي، وتحليل البيانات.</p>
+            <button onClick={() => onNavigateToCategory('digital')} style={{ width: '100%', backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>عرض الدورات</button>
+          </div>
+
+          <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 3px 8px rgba(0,0,0,0.04)', borderTop: '4px solid #b967ff', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ width: '50px', height: '50px', backgroundColor: '#fae8ff', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '10px' }}>👔</div>
+            <h3 style={{ margin: '0 0 8px 0', color: '#2d3d52', fontSize: '16px' }}>مهارات مهنية</h3>
+            <p style={{ color: '#666', fontSize: '13px', margin: '0 0 15px 0', minHeight: '36px', lineHeight: '1.4' }}>تتضمن إدارة المشاريع، التسويق الإلكتروني، التخطيط للأعمال، ومهارات القيادة وسوق العمل.</p>
+            <button onClick={() => onNavigateToCategory('professional')} style={{ width: '100%', backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>عرض الدورات</button>
+          </div>
+
+          <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 3px 8px rgba(0,0,0,0.04)', borderTop: '4px solid #2d3d52', display: 'flex', flexDirection: 'column', alignItems: 'center', textAlign: 'center' }}>
+            <div style={{ width: '50px', height: '50px', backgroundColor: '#e2e8f0', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '24px', marginBottom: '10px' }}>🌱</div>
+            <h3 style={{ margin: '0 0 8px 0', color: '#2d3d52', fontSize: '16px' }}>مهارات حياتية</h3>
+            <p style={{ color: '#666', fontSize: '13px', margin: '0 0 15px 0', minHeight: '36px', lineHeight: '1.4' }}>تركز على التواصل الفعّال، إدارة الوقت، التفكير الإبداعي، والتطوير الذاتي والشخصي.</p>
+            <button onClick={() => onNavigateToCategory('life')} style={{ width: '100%', backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>عرض الدورات</button>
+          </div>
+
+        </div>
+
+        {/* 3. خطة الربع الحالي (3 أشهر) */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #8b44db', paddingBottom: '5px', marginBottom: '15px' }}>
+          <h2 style={{ color: '#2d3d52', fontSize: '18px', margin: 0 }}>📅 خطة الربع الحالي (3 أشهر)</h2>
+          <button 
+            onClick={() => setIsQuarterPlanOpen(!isQuarterPlanOpen)}
+            style={{ backgroundColor: 'transparent', border: 'none', color: '#8b44db', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
+          >
+            {isQuarterPlanOpen ? '▲ إخفاء' : '▼ إظهار'}
+          </button>
+        </div>
+
+        {isQuarterPlanOpen && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '15px', marginBottom: '40px' }}>
+            
+            {/* الشهر الأول */}
+            <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #8b44db' }}>
+              <h4 style={{ color: '#8b44db', margin: '0 0 12px 0', fontSize: '15px' }}>الشهر الأول</h4>
+              {planCourses.filter(c => c.month_1).length === 0 ? (
+                <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>لا توجد كورسات مضافة لهذا الشهر.</p>
+              ) : (
+                <ul style={{ margin: 0, paddingRight: '18px', color: '#444', fontSize: '13px', lineHeight: '1.6' }}>
+                  {planCourses.filter(c => c.month_1).map(c => (
+                    <li key={c.id} style={{ marginBottom: '6px' }}>
+                      <span onClick={() => onNavigateToCategory(c.category)} style={{ color: '#8b44db', cursor: 'pointer', fontWeight: 'bold' }}>{c.title}</span>
+                      <span style={{ color: '#666', fontSize: '11px', display: 'block' }}>المدرب: {c.instructor}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* الشهر الثاني */}
+            <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #b967ff' }}>
+              <h4 style={{ color: '#b967ff', margin: '0 0 12px 0', fontSize: '15px' }}>الشهر الثاني</h4>
+              {planCourses.filter(c => c.month_2).length === 0 ? (
+                <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>لا توجد كورسات مضافة لهذا الشهر.</p>
+              ) : (
+                <ul style={{ margin: 0, paddingRight: '18px', color: '#444', fontSize: '13px', lineHeight: '1.6' }}>
+                  {planCourses.filter(c => c.month_2).map(c => (
+                    <li key={c.id} style={{ marginBottom: '6px' }}>
+                      <span onClick={() => onNavigateToCategory(c.category)} style={{ color: '#b967ff', cursor: 'pointer', fontWeight: 'bold' }}>{c.title}</span>
+                      <span style={{ color: '#666', fontSize: '11px', display: 'block' }}>المدرب: {c.instructor}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* الشهر الثالث */}
+            <div style={{ backgroundColor: '#fff', padding: '15px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #2d3d52' }}>
+              <h4 style={{ color: '#2d3d52', margin: '0 0 12px 0', fontSize: '15px' }}>الشهر الثالث</h4>
+              {planCourses.filter(c => c.month_3).length === 0 ? (
+                <p style={{ color: '#94a3b8', fontSize: '13px', margin: 0 }}>لا توجد كورسات مضافة لهذا الشهر.</p>
+              ) : (
+                <ul style={{ margin: 0, paddingRight: '18px', color: '#444', fontSize: '13px', lineHeight: '1.6' }}>
+                  {planCourses.filter(c => c.month_3).map(c => (
+                    <li key={c.id} style={{ marginBottom: '6px' }}>
+                      <span onClick={() => onNavigateToCategory(c.category)} style={{ color: '#2d3d52', cursor: 'pointer', fontWeight: 'bold' }}>{c.title}</span>
+                      <span style={{ color: '#666', fontSize: '11px', display: 'block' }}>المدرب: {c.instructor}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+          </div>
+        )}
+
+        {/* 4. قسم الفعاليات وأخبار المركز */}
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', borderBottom: '2px solid #f59e0b', paddingBottom: '5px', marginBottom: '15px' }}>
+          <h2 style={{ color: '#2d3d52', fontSize: '18px', margin: 0 }}>📢 الفعاليات وأخبار المركز</h2>
+          <button 
+            onClick={() => setIsEventsOpen(!isEventsOpen)}
+            style={{ backgroundColor: 'transparent', border: 'none', color: '#f59e0b', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '4px', padding: 0 }}
+          >
+            {isEventsOpen ? '▲ إخفاء' : '▼ إظهار'}
+          </button>
+        </div>
+
+        {isEventsOpen && (
+          eventsList.length === 0 ? (
+            <p style={{ color: '#666', fontSize: '14px', marginBottom: '30px' }}>لا توجد فعاليات أو أخبار مضافة حالياً.</p>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '15px', marginBottom: '30px' }}>
+              {eventsList.map((item) => (
+                <div key={item.id} style={{ backgroundColor: '#fff', padding: '16px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: `5px solid ${item.border_color || '#f59e0b'}`, display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
+                  <span style={{ fontSize: '24px', backgroundColor: item.bg_color || '#fef3c7', padding: '8px', borderRadius: '8px' }}>{item.icon || '🎓'}</span>
+                  <div>
+                    <h4 style={{ margin: '0 0 6px 0', color: '#2d3d52', fontSize: '15px' }}>{item.title}</h4>
+                    <p style={{ color: '#666', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>{item.description}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )
+        )}
+
+      </main>
+
+      {/* نافذة التواصل معنا */}
+      {showContactModal && (
+        <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
+          <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '16px', width: '100%', maxWidth: '480px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', direction: 'rtl', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '2px solid #b967ff', paddingBottom: '10px', marginBottom: '15px' }}>
+              <h3 style={{ margin: 0, color: '#2d3d52', fontSize: '18px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                📞 تواصل معنا والاستفسار
+              </h3>
+              <button 
+                onClick={() => setShowContactModal(false)}
+                style={{ background: 'none', border: 'none', fontSize: '18px', cursor: 'pointer', color: '#64748b', fontWeight: 'bold' }}
+              >
+                ✕
+              </button>
+            </div>
+
+            <div style={{ marginBottom: '15px', borderRadius: '10px', overflow: 'hidden', border: '1px solid #cbd5e1', boxShadow: '0 2px 6px rgba(0,0,0,0.08)' }}>
+              <div style={{ backgroundColor: '#2d3d52', color: '#fff', padding: '6px 12px', fontSize: '12px', fontWeight: 'bold', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                🏫 نظرة على قاعة التدريب بمقر المركز
+              </div>
+              <img 
+                src="https://emgczjqpdwujbsfhjbtk.supabase.co/storage/v1/object/sign/trainers/Place.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV85OGU5N2MzOS01OGYzLTQwNjktOGQyMi02NmMyMTM1NzRlYjQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJ0cmFpbmVycy9QbGFjZS5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0OTAwMDY1LCJleHAiOjE5NDI1ODAwNjV9.huQEJImsWW13MpfnVb9yiD94W8J0Dppkq2Yqz0b8PRs" 
+                alt="قاعة التدريب" 
+                style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }} 
+              />
+            </div>
+
+            <div style={{ backgroundColor: '#f8fafc', padding: '12px', borderRadius: '10px', marginBottom: '15px', border: '1px solid #e2e8f0', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', fontSize: '13px' }}>
+              {contactInfo?.phone && <div><strong>الهاتف:</strong> <span style={{ color: '#334155' }}>{contactInfo.phone}</span></div>}
+              {contactInfo?.whatsapp && <div><strong>واتساب:</strong> <span style={{ color: '#10b981' }}>{contactInfo.whatsapp}</span></div>}
+              {contactInfo?.email && <div style={{ gridColumn: 'span 2' }}><strong>البريد الإلكتروني:</strong> <span style={{ color: '#334155' }}>{contactInfo.email}</span></div>}
+              
+              <div style={{ gridColumn: 'span 2', marginTop: '4px' }}>
+                <strong>العنوان:</strong> <span style={{ color: '#334155' }}>{contactInfo?.address || 'أسوان - الشيخ هارون - بجوار مرور أسوان'}</span>
+                <div style={{ marginTop: '4px' }}>
+                  <a 
+                    href="https://maps.app.goo.gl/DKzBLUZ8ZjKCYTYT9?g_st=awb" 
+                    target="_blank" 
+                    rel="noreferrer" 
+                    style={{ color: '#8b44db', textDecoration: 'underline', fontSize: '12px', fontWeight: 'bold' }}
+                  >
+                    🗺️ اضغط هنا لفتح موقع المركز على الخريطة مباشرة
+                  </a>
+                </div>
+              </div>
+
+              {contactInfo?.working_hours && <div style={{ gridColumn: 'span 2', marginTop: '4px' }}><strong>ساعات العمل:</strong> <span style={{ color: '#334155' }}>{contactInfo.working_hours}</span></div>}
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginBottom: '20px', flexWrap: 'wrap' }}>
+              {contactInfo?.facebook && <a href={contactInfo.facebook} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e7f3ff', color: '#1877f2', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>فيسبوك</a>}
+              {contactInfo?.youtube && <a href={contactInfo.youtube} target="_blank" rel="noreferrer" style={{ backgroundColor: '#ffebee', color: '#ff0000', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>يوتيوب</a>}
+              {contactInfo?.instagram && <a href={contactInfo.instagram} target="_blank" rel="noreferrer" style={{ backgroundColor: '#fce4ec', color: '#e1306c', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>إنستغرام</a>}
+              {contactInfo?.telegram && <a href={contactInfo.telegram} target="_blank" rel="noreferrer" style={{ backgroundColor: '#e3f2fd', color: '#0088cc', padding: '5px 12px', borderRadius: '15px', textDecoration: 'none', fontSize: '12px', fontWeight: 'bold' }}>تيليجرام</a>}
+            </div>
+
+            <form onSubmit={handleSendMessage} style={{ display: 'flex', flexDirection: 'column', gap: '10px', borderTop: '1px solid #e2e8f0', paddingTop: '15px' }}>
+              <h4 style={{ margin: '0 0 5px 0', color: '#2d3d52', fontSize: '14px' }}>💬 أرسل استفسارك مباشرة</h4>
+              
+              {submitSuccess && (
+                <div style={{ backgroundColor: '#d1fae5', color: '#065f46', padding: '8px', borderRadius: '6px', fontSize: '12px', textAlign: 'center', fontWeight: 'bold' }}>
+                  ✨ تم إرسال استفسارك بنجاح، سنتواصل معك قريباً!
+                </div>
+              )}
+
+              <input 
+                type="text" 
+                placeholder="اسمك الكريم..." 
+                value={senderName} 
+                onChange={(e) => setSenderName(e.target.value)} 
+                required 
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+              />
+
+              <input 
+                type="email" 
+                placeholder="البريد الإلكتروني..." 
+                value={senderEmail} 
+                onChange={(e) => setSenderEmail(e.target.value)} 
+                required 
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none' }}
+              />
+
+              <textarea 
+                placeholder="اكتب استفسارك أو رسالتك هنا..." 
+                value={senderMessage} 
+                onChange={(e) => setSenderMessage(e.target.value)} 
+                rows={2} 
+                required 
+                style={{ width: '100%', padding: '8px 10px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '13px', outline: 'none', resize: 'vertical' }}
+              ></textarea>
+
+              <div style={{ display: 'flex', gap: '8px', marginTop: '5px' }}>
+                <button 
+                  type="submit" 
+                  disabled={isSubmitting}
+                  style={{ flex: 1, backgroundColor: '#8b44db', color: '#fff', border: 'none', padding: '9px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  {isSubmitting ? 'جاري الإرسال...' : 'إرسال الاستفسار'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setShowContactModal(false)} 
+                  style={{ backgroundColor: '#e2e8f0', color: '#334155', border: 'none', padding: '9px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}
+                >
+                  إغلاق
+                </button>
+              </div>
+            </form>
+ 
+          </div>
+        </div>
+      )}
+
+
+      {isMobile && (
+        <BottomNav
+          active={activeTab}
+          items={[
+            { key: 'home', icon: '🏠', label: 'الرئيسية', onClick: () => { setActiveTab('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); } },
+            { key: 'courses', icon: '📚', label: 'الكورسات', onClick: () => { setActiveTab('courses'); document.getElementById('mh-catalog')?.scrollIntoView({ behavior: 'smooth' }); } },
+            { key: 'trainers', icon: '👨‍🏫', label: 'المدربون', onClick: () => onNavigateToTrainer && onNavigateToTrainer() },
+            { key: 'contact', icon: '✉️', label: 'تواصل معنا', onClick: () => setShowContactModal(true) },
+          ]}
+        />
+      )}
+    </div>
+  );
+}
+
+export default HomeScreen;

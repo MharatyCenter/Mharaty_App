@@ -5,6 +5,7 @@ import { newId, toWhatsAppNumber } from './lib/validation';
 import { useToast } from './ui/Toast';
 import RegistrationsSummary from './ui/RegistrationsSummary';
 import EditRegistrationModal from './ui/EditRegistrationModal';
+import BroadcastModal from './ui/BroadcastModal';
 import {
   DEFAULT_TEMPLATES, MESSAGE_META, MESSAGE_ORDER, PAYMENT_PLACEHOLDER_MARK, PLACEHOLDERS, STATUS_META, STATUS_ORDER,
   daysUntil, fillTemplate, formatArabicDate,
@@ -77,6 +78,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
   const [search, setSearch] = useState('');
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [editing, setEditing] = useState<RegistrationRow | null>(null);
+  const [showBroadcast, setShowBroadcast] = useState(false);
   const [syncBusy, setSyncBusy] = useState<'' | 'from' | 'to'>('');
   const [syncProgress, setSyncProgress] = useState('');
 
@@ -308,7 +310,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
       const after = await load(true);
       if (after === null) { notify('تمت المزامنة لكن تعذر تحديث القائمة. اضغط «تحديث».', 'error'); return; }
       const diff = after - before;
-      notify(diff > 0 ? `✅ تم نقل ${diff} متدرب من الشيت إلى التطبيق` : 'لا توجد صفوف جديدة للنقل. (الصف يلزمه: الاسم، رقم قومي 14 رقماً، واتساب، كورس)', diff > 0 ? 'success' : 'error');
+      notify(diff > 0 ? `✅ تم نقل ${diff} متدرب من الشيت إلى التطبيق` : 'لم يُنقل أي صف جديد. الصف يلزمه فقط: الاسم + الكورس، ولا يُنقل إن كان عمود «المعرّف» (المخفي) ممتلئاً. إن كان الشيت جديداً فتأكد أنك حدّثت Sync.gs وأنشأت نسخة نشر جديدة، أو شغّل الدالة syncNewRowsToApp من Apps Script لترى سبب التخطي.', diff > 0 ? 'success' : 'error');
     } finally {
       setSyncBusy('');
     }
@@ -386,6 +388,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
         <h3 style={{ color: '#2d3d52', margin: 0, fontSize: '16px' }}>📝 إدارة المتدربين والتسجيلات</h3>
         <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
           <button onClick={() => setShowTemplates((v) => !v)} style={btn('#8b44db')}>✏️ قوالب الرسائل</button>
+          <button onClick={() => setShowBroadcast(true)} style={btn('#25d366')}>📣 رسالة جماعية</button>
           {isSheetsEnabled && sheetsViewUrl && (
             <a href={sheetsViewUrl} target="_blank" rel="noreferrer" style={{ ...btn('#10b981'), textDecoration: 'none', display: 'inline-block' }}>📊 فتح Google Sheet</a>
           )}
@@ -450,6 +453,8 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
           ))}
         </div>
       )}
+
+      <BroadcastModal open={showBroadcast} rows={rows} courseTitles={courseTitles} onClose={() => setShowBroadcast(false)} />
 
       {!loading && !loadError && <RegistrationsSummary rows={rows} />}
 

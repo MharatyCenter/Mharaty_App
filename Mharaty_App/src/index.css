@@ -1,0 +1,65 @@
+/* الخط محلي (يعمل بدون إنترنت وداخل تطبيق APK) */
+@import '@fontsource/cairo/arabic-400.css';
+@import '@fontsource/cairo/arabic-600.css';
+@import '@fontsource/cairo/arabic-700.css';
+@import '@fontsource/cairo/latin-400.css';
+@import '@fontsource/cairo/latin-700.css';
+
+/* نظام التصميم: ألوان ومسافات موحدة (تُستخدم في المكونات الجديدة، ونوحّد الباقي تدريجياً) */
+:root {
+  --mh-primary: #8b44db;
+  --mh-primary-soft: #f3e8ff;
+  --mh-navy: #2d3d52;
+  --mh-muted: #64748b;
+  --mh-border: #e2e8f0;
+  --mh-bg: #f4f6f8;
+  --mh-card: #ffffff;
+  --mh-success: #16a34a;
+  --mh-danger: #dc2626;
+  --mh-radius: 12px;
+  --mh-shadow: 0 3px 10px rgba(0, 0, 0, 0.06);
+}
+
+* {
+  font-family: 'Cairo', Tahoma, sans-serif !important;
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  margin: 0;
+  background-color: #f4f6f8;
+  color: #1e293b;
+  overflow-x: hidden;
+  /* مراعاة النتوء وأشرطة النظام في الأجهزة الحديثة */
+  padding-top: env(safe-area-inset-top);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+img { max-width: 100%; }
+
+button, [role="button"], a { touch-action: manipulation; }
+button { transition: transform 0.08s ease, opacity 0.15s ease; }
+button:active:not(:disabled) { transform: scale(0.97); }
+button:disabled { cursor: not-allowed !important; }
+
+input, textarea, select { font-size: 16px; } /* يمنع تكبير الصفحة تلقائياً في الجوال */
+
+:focus-visible {
+  outline: 3px solid #b967ff;
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+@keyframes mh-spin { to { transform: rotate(360deg); } }
+@keyframes mh-slide-in { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes mh-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.45; } }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}

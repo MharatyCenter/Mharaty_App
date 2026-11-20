@@ -1,0 +1,905 @@
+import { useState, useEffect } from 'react';
+import { supabase } from './supabaseClient';
+import { uploadCourseImage } from './lib/images';
+import { downloadFullBackup } from './lib/backup';
+import RegistrationsManager from './RegistrationsManager';
+import AgendaPlanner from './ui/AgendaPlanner';
+
+const COURSE_LEVELS = ['مبتدئ', 'متوسط', 'خبرة'];
+const COURSE_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'digital', label: 'مهارات رقمية' },
+  { value: 'professional', label: 'مهارات مهنية' },
+  { value: 'life', label: 'مهارات حياتية' },
+];
+const categoryLabel = (v: string) => COURSE_CATEGORIES.find((c) => c.value === v)?.label ?? v;
+const selectStyle: React.CSSProperties = { padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#fff' };
+
+interface Course {
+  id: number;
+  title: string;
+  instructor: string;
+  duration: string;
+  level: string;
+  description: string;
+  category: string;
+  is_active: boolean;
+  progress_percentage: number;
+  trainees_performance: string;
+  month_1: boolean;
+  month_2: boolean;
+  month_3: boolean;
+  fee?: number | null;
+  start_date?: string | null;
+  end_date?: string | null;
+  schedule?: string | null;
+  image_url?: string | null;
+}
+
+interface EventItem {
+  id: number;
+  title: string;
+  description: string | null;
+  event_date: string | null;
+  location: string | null;
+  category: string | null;
+  is_active: boolean | null;
+  speaker: string | null;
+  created_at: string;
+}
+
+interface Trainer {
+  id: number;
+  name: string;
+  specialty: string;
+  experience_years: string;
+  bio: string;
+  email: string;
+  phone: string;
+  is_active: boolean;
+  image_url: string;
+}
+
+interface ContactInfo {
+  phone: string;
+  whatsapp: string;
+  facebook: string;
+  youtube: string;
+  instagram: string;
+  telegram: string;
+  email: string;
+  website: string;
+  address: string;
+  working_hours: string;
+}
+
+interface ContactMessage {
+  id: number;
+  sender_name: string;
+  sender_email: string;
+  message: string;
+  is_read: boolean;
+  created_at: string;
+}
+
+interface AnalyticsData {
+  id: number;
+  page_path: string;
+  device_type: string;
+  browser: string;
+  user_name?: string;
+  created_at: string;
+}
+
+interface AdminDashboardProps {
+  onBack?: () => void;
+  onBackToHome?: () => void;
+}
+
+export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDashboardProps) {
+  const handleBack = onBack || onBackToHome || (() => {});
+  
+  const [activeTab, setActiveTab] = useState<'courses' | 'events' | 'trainers' | 'registrations' | 'agenda' | 'contact_channels' | 'messages' | 'analytics'>('courses');
+  const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
+
+  // حالات الكورسات
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [loadingCourses, setLoadingCourses] = useState(true);
+  const [showCourseForm, setShowCourseForm] = useState(false);
+  const [editingCourseId, setEditingCourseId] = useState<number | null>(null);
+  const [isSavingCourse, setIsSavingCourse] = useState(false);
+  
+  const [title, setTitle] = useState('');
+  const [instructor, setInstructor] = useState('');
+  const [duration, setDuration] = useState('');
+  const [level, setLevel] = useState('مبتدئ');
+  const [description, setDescription] = useState('');
+  const [category, setCategory] = useState('digital');
+  const [isActive, setIsActive] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const [performance, setPerformance] = useState('');
+  const [month1, setMonth1] = useState(false);
+  const [month2, setMonth2] = useState(false);
+  const [month3, setMonth3] = useState(false);
+  const [fee, setFee] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [schedule, setSchedule] = useState('');
+  const [imageUrl, setImageUrl] = useState('');
+  const [uploadingImage, setUploadingImage] = useState(false);
+
+  // حالات الفعاليات (Events)
+  const [eventsList, setEventsList] = useState<EventItem[]>([]);
+  const [loadingEvents, setLoadingEvents] = useState(false);
+  const [showEventForm, setShowEventForm] = useState(false);
+  const [editingEventId, setEditingEventId] = useState<number | null>(null);
+  const [isSavingEvent, setIsSavingEvent] = useState(false);
+
+  const [eventTitle, setEventTitle] = useState('');
+  const [eventDescription, setEventDescription] = useState('');
+  const [eventDate, setEventDate] = useState('');
+  const [eventLocation, setEventLocation] = useState('');
+  const [eventCategory, setEventCategory] = useState('general');
+  const [eventSpeaker, setEventSpeaker] = useState('');
+  const [eventIsActive, setEventIsActive] = useState(false);
+
+  // حالات المسجلين
+  const [regCount, setRegCount] = useState(0);
+
+  // حالات المدربين
+  const [trainers, setTrainers] = useState<Trainer[]>([]);
+  const [loadingTrainers, setLoadingTrainers] = useState(false);
+  const [showTrainerForm, setShowTrainerForm] = useState(false);
+  const [editingTrainerId, setEditingTrainerId] = useState<number | null>(null);
+  const [isSavingTrainer, setIsSavingTrainer] = useState(false);
+  
+  const [trainerName, setTrainerName] = useState('');
+  const [trainerSpecialty, setTrainerSpecialty] = useState('');
+  const [trainerExp, setTrainerExp] = useState('');
+  const [trainerBio, setTrainerBio] = useState('');
+  const [trainerEmail, setTrainerEmail] = useState('');
+  const [trainerPhone, setTrainerPhone] = useState('');
+  const [trainerImage, setTrainerImage] = useState('');
+  const [trainerIsActive, setTrainerIsActive] = useState(true);
+
+  // حالات التواصل والرسائل والإحصائيات المتقدمة
+  const [contactData, setContactData] = useState<ContactInfo>({
+    phone: '', whatsapp: '', facebook: '', youtube: '', instagram: '', telegram: '', email: '', website: '', address: '', working_hours: ''
+  });
+  const [isSavingContact, setIsSavingContact] = useState(false);
+  const [messages, setMessages] = useState<ContactMessage[]>([]);
+  
+  // الإحصائيات المتقدمة
+  const [analyticsList, setAnalyticsList] = useState<AnalyticsData[]>([]);
+  const [totalVisitors, setTotalVisitors] = useState<number>(0);
+  const [activeVisitorsCount, setActiveVisitorsCount] = useState<number>(0);
+  const [categoryStats, setCategoryStats] = useState({ digital: 0, professional: 0, life: 0 });
+  const [peakHours, setPeakHours] = useState<string>('جاري التحليل...');
+  const [activeCoursesCount, setActiveCoursesCount] = useState<number>(0);
+
+  useEffect(() => {
+    fetchAllData();
+  }, []);
+
+  const showNotification = (text: string, type: 'success' | 'error') => {
+    setStatusMessage({ text, type });
+    setTimeout(() => setStatusMessage(null), 4000);
+  };
+
+  const fetchAllData = async () => {
+    setLoadingCourses(true);
+    setLoadingTrainers(true);
+    setLoadingEvents(true);
+
+    await Promise.all([
+      supabase.schema('mharaty').from('courses').select('*').order('id', { ascending: false }).then(({ data }) => {
+        if (data) {
+          setCourses(data);
+          const digitalCount = data.filter(c => c.category === 'digital').length;
+          const professionalCount = data.filter(c => c.category === 'professional').length;
+          const lifeCount = data.filter(c => c.category === 'life').length;
+          const activeCount = data.filter(c => c.is_active).length;
+          setCategoryStats({ digital: digitalCount, professional: professionalCount, life: lifeCount });
+          setActiveCoursesCount(activeCount);
+        }
+        setLoadingCourses(false);
+      }),
+      supabase.schema('mharaty').from('events').select('*').order('id', { ascending: false }).then(({ data }) => {
+        if (data) setEventsList(data);
+        setLoadingEvents(false);
+      }),
+      supabase.schema('mharaty').from('trainers').select('*').order('id', { ascending: false }).then(({ data }) => {
+        if (data) {
+          setTrainers(data);
+        }
+        setLoadingTrainers(false);
+      }),
+      supabase.schema('mharaty').from('contact_info').select('*').maybeSingle().then(({ data }) => {
+        if (data) setContactData(data);
+      }),
+      supabase.schema('mharaty').from('contact_messages').select('*').order('created_at', { ascending: false }).then(({ data }) => {
+        if (data) setMessages(data);
+      }),
+      supabase.schema('mharaty').from('site_analytics_advanced').select('*', { count: 'exact' }).order('created_at', { ascending: false }).then(({ data, count }) => {
+        if (data) {
+          setAnalyticsList(data);
+          setTotalVisitors(count || data.length);
+          const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+          const activeNow = data.filter(item => new Date(item.created_at) > fiveMinutesAgo).length;
+          setActiveVisitorsCount(activeNow > 0 ? activeNow : 1);
+
+          if (data.length > 0) {
+            const hoursCount: { [key: number]: number } = {};
+            data.forEach(row => {
+              const hour = new Date(row.created_at).getHours();
+              hoursCount[hour] = (hoursCount[hour] || 0) + 1;
+            });
+            let peakHour = 0;
+            let maxVisits = 0;
+            Object.keys(hoursCount).forEach(hourStr => {
+              const h = Number(hourStr);
+              if (hoursCount[h] > maxVisits) {
+                maxVisits = hoursCount[h];
+                peakHour = h;
+              }
+            });
+            const formattedHour = peakHour >= 12 
+              ? `${peakHour === 12 ? 12 : peakHour - 12} مساءً` 
+              : `${peakHour === 0 ? 12 : peakHour} صباحاً`;
+            setPeakHours(formattedHour);
+          } else {
+            setPeakHours('لا توجد بيانات كافية');
+          }
+        }
+      })
+    ]);
+  };
+
+  const handleSaveCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingCourse(true);
+    const payload = { 
+      title, instructor, duration, level, description, category, 
+      is_active: isActive, progress_percentage: progress, trainees_performance: performance,
+      month_1: month1, month_2: month2, month_3: month3,
+      fee: fee === '' ? null : Number(fee), start_date: startDate || null, end_date: endDate || null, schedule: schedule.trim() || null,
+      image_url: imageUrl.trim() || null,
+    };
+
+    const query = editingCourseId 
+      ? supabase.schema('mharaty').from('courses').update(payload).eq('id', editingCourseId)
+      : supabase.schema('mharaty').from('courses').insert([payload]);
+
+    const { error } = await query;
+    setIsSavingCourse(false);
+
+    if (error) {
+      showNotification('خطأ: ' + error.message, 'error');
+    } else {
+      showNotification('✅ تم حفظ الكورس بنجاح!', 'success');
+      resetCourseForm();
+      fetchAllData();
+    }
+  };
+
+  const handleEditCourseClick = (c: Course) => {
+    setEditingCourseId(c.id);
+    setTitle(c.title);
+    setInstructor(c.instructor);
+    setDuration(c.duration);
+    setLevel(c.level);
+    setDescription(c.description);
+    setCategory(c.category);
+    setIsActive(c.is_active);
+    setProgress(c.progress_percentage || 0);
+    setPerformance(c.trainees_performance || '');
+    setMonth1(c.month_1);
+    setMonth2(c.month_2);
+    setMonth3(c.month_3);
+    setFee(c.fee != null ? String(c.fee) : '');
+    setStartDate(c.start_date || '');
+    setEndDate(c.end_date || '');
+    setSchedule(c.schedule || '');
+    setImageUrl(c.image_url || '');
+    setShowCourseForm(true);
+  };
+
+  const handleImageFile = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadingImage(true);
+    try {
+      const url = await uploadCourseImage(file);
+      setImageUrl(url);
+      showNotification('✅ تم رفع الصورة. اضغط «حفظ» لتثبيتها في الكورس.', 'success');
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      showNotification('تعذر رفع الصورة: ' + msg + ' (يمكنك لصق رابط صورة بدلاً من ذلك)', 'error');
+    } finally {
+      setUploadingImage(false);
+    }
+  };
+
+  const [backingUp, setBackingUp] = useState(false);
+  const handleBackup = async () => {
+    setBackingUp(true);
+    try {
+      const r = await downloadFullBackup();
+      if (!r.ok) showNotification('تعذر إنشاء النسخة الاحتياطية. تحقق من الاتصال وصلاحيات الدخول.', 'error');
+      else showNotification(`✅ تم تحميل النسخة الاحتياطية (${r.counts.course_registrations ?? 0} تسجيل، ${r.counts.courses ?? 0} كورس)` + (r.failed.length ? ` — تعذر جلب: ${r.failed.join('، ')}` : ''), r.failed.length ? 'error' : 'success');
+    } finally {
+      setBackingUp(false);
+    }
+  };
+
+  const handleDeleteCourse = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا الكورس؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    const { error } = await supabase.schema('mharaty').from('courses').delete().eq('id', id);
+    if (!error) {
+      showNotification('🗑️ تم الحذف بنجاح', 'success');
+      fetchAllData();
+    } else {
+      showNotification('خطأ في الحذف', 'error');
+    }
+  };
+
+  const resetCourseForm = () => {
+    setEditingCourseId(null);
+    setTitle(''); setDuration(''); setLevel('مبتدئ'); setDescription(''); setCategory('digital');
+    setIsActive(false); setProgress(0); setPerformance(''); setMonth1(false); setMonth2(false); setMonth3(false);
+    setFee(''); setStartDate(''); setEndDate(''); setSchedule(''); setImageUrl('');
+    setShowCourseForm(false);
+  };
+
+  // دوال إدارة الفعاليات (Events)
+  const handleSaveEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingEvent(true);
+    const payload = {
+      title: eventTitle,
+      description: eventDescription,
+      event_date: eventDate ? new Date(eventDate).toISOString() : null,
+      location: eventLocation,
+      category: eventCategory,
+      speaker: eventSpeaker,
+      is_active: eventIsActive
+    };
+
+    const query = editingEventId
+      ? supabase.schema('mharaty').from('events').update(payload).eq('id', editingEventId)
+      : supabase.schema('mharaty').from('events').insert([payload]);
+
+    const { error } = await query;
+    setIsSavingEvent(false);
+
+    if (error) {
+      showNotification('خطأ: ' + error.message, 'error');
+    } else {
+      showNotification('✅ تم حفظ الفعالية بنجاح!', 'success');
+      resetEventForm();
+      fetchAllData();
+    }
+  };
+
+  const handleEditEventClick = (ev: EventItem) => {
+    setEditingEventId(ev.id);
+    setEventTitle(ev.title);
+    setEventDescription(ev.description || '');
+    setEventDate(ev.event_date ? ev.event_date.substring(0, 16) : '');
+    setEventLocation(ev.location || '');
+    setEventCategory(ev.category || 'general');
+    setEventSpeaker(ev.speaker || '');
+    setEventIsActive(ev.is_active ?? false);
+    setShowEventForm(true);
+  };
+
+  const handleDeleteEvent = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذه الفعالية؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    const { error } = await supabase.schema('mharaty').from('events').delete().eq('id', id);
+    if (!error) {
+      showNotification('🗑️ تم حذف الفعالية بنجاح', 'success');
+      fetchAllData();
+    } else {
+      showNotification('خطأ في حذف الفعالية', 'error');
+    }
+  };
+
+  const resetEventForm = () => {
+    setEditingEventId(null);
+    setEventTitle('');
+    setEventDescription('');
+    setEventDate('');
+    setEventLocation('');
+    setEventCategory('general');
+    setEventSpeaker('');
+    setEventIsActive(false);
+    setShowEventForm(false);
+  };
+
+  const handleSaveTrainer = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingTrainer(true);
+    const payload = { 
+      name: trainerName, specialty: trainerSpecialty, experience_years: trainerExp, 
+      bio: trainerBio, email: trainerEmail, phone: trainerPhone, is_active: trainerIsActive, image_url: trainerImage 
+    };
+
+    const query = editingTrainerId
+      ? supabase.schema('mharaty').from('trainers').update(payload).eq('id', editingTrainerId)
+      : supabase.schema('mharaty').from('trainers').insert([payload]);
+
+    const { error } = await query;
+    setIsSavingTrainer(false);
+
+    if (error) {
+      showNotification('خطأ: ' + error.message, 'error');
+    } else {
+      showNotification('✅ تم حفظ المدرب بنجاح!', 'success');
+      resetTrainerForm();
+      fetchAllData();
+    }
+  };
+
+  const handleEditTrainerClick = (t: Trainer) => {
+    setEditingTrainerId(t.id);
+    setTrainerName(t.name);
+    setTrainerSpecialty(t.specialty);
+    setTrainerExp(t.experience_years || '');
+    setTrainerBio(t.bio || '');
+    setTrainerEmail(t.email || '');
+    setTrainerPhone(t.phone || '');
+    setTrainerIsActive(t.is_active);
+    setTrainerImage(t.image_url || '');
+    setShowTrainerForm(true);
+  };
+
+  const handleDeleteTrainer = async (id: number) => {
+    if (!window.confirm('هل أنت متأكد من حذف هذا المدرب؟ لا يمكن التراجع عن هذا الإجراء.')) return;
+    const { error } = await supabase.schema('mharaty').from('trainers').delete().eq('id', id);
+    if (!error) {
+      showNotification('🗑️ تم حذف المدرب', 'success');
+      fetchAllData();
+    } else {
+      showNotification('خطأ في حذف المدرب', 'error');
+    }
+  };
+
+  const resetTrainerForm = () => {
+    setEditingTrainerId(null);
+    setTrainerName(''); setTrainerSpecialty(''); setTrainerExp(''); setTrainerBio('');
+    setTrainerEmail(''); setTrainerPhone(''); setTrainerImage(''); setTrainerIsActive(true);
+    setShowTrainerForm(false);
+  };
+
+  const handleSaveContact = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsSavingContact(true);
+    const { error } = await supabase.schema('mharaty').from('contact_info').upsert({ id: 1, ...contactData });
+    setIsSavingContact(false);
+    if (error) {
+      showNotification('خطأ في حفظ التواصل', 'error');
+    } else {
+      showNotification('✅ تم تحديث قنوات التواصل بنجاح', 'success');
+    }
+  };
+
+  return (
+    <div style={{ direction: 'rtl', textAlign: 'right', padding: '20px', backgroundColor: '#f8fafc', minHeight: '100vh' }}>
+      
+      {/* الهيدر وزر العودة */}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', backgroundColor: '#2d3d52', padding: '15px 25px', borderRadius: '12px', color: '#fff', marginBottom: '20px' }}>
+        <h2 style={{ margin: 0, fontSize: '18px' }}>⚙️ لوحة تحكم المشرفين - مهاراتي</h2>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <button onClick={handleBackup} disabled={backingUp} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 14px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', opacity: backingUp ? 0.7 : 1 }}>
+            {backingUp ? 'جاري التجهيز...' : '💾 نسخة احتياطية'}
+          </button>
+          <button onClick={handleBack} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '8px 16px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+            🚪 تسجيل الخروج
+          </button>
+        </div>
+      </div>
+
+      {statusMessage && (
+        <div style={{ padding: '12px 20px', marginBottom: '20px', borderRadius: '8px', backgroundColor: statusMessage.type === 'success' ? '#dcfce7' : '#fee2e2', color: statusMessage.type === 'success' ? '#166534' : '#991b1b', fontWeight: 'bold' }}>
+          {statusMessage.text}
+        </div>
+      )}
+
+      {/* شريط التنقل والتبويبات */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '20px', flexWrap: 'wrap' }}>
+        {[
+          { id: 'courses', label: `📘 إدارة الكورسات (${courses.length})` },
+          { id: 'events', label: `📢 الفعاليات (${eventsList.length})` },
+          { id: 'trainers', label: `👨‍🏫 المدربين (${trainers.length})` },
+          { id: 'registrations', label: `📝 المتدربون (${regCount})` },
+          { id: 'agenda', label: '🗓️ الأجندة' },
+          { id: 'contact_channels', label: '📞 قنوات التواصل' },
+          { id: 'messages', label: `💬 الرسائل (${messages.length})` },
+          { id: 'analytics', label: '📊 الإحصائيات المتقدمة' },
+        ].map(tab => (
+          <button 
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id as any)}
+            style={{ padding: '10px 16px', borderRadius: '8px', border: 'none', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px', backgroundColor: activeTab === tab.id ? '#2d3d52' : '#fff', color: activeTab === tab.id ? '#fff' : '#2d3d52', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* 1. قسم الكورسات */}
+      {activeTab === 'courses' && (
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0, color: '#2d3d52', fontSize: '16px' }}>إدارة الكورسات التدريبية</h3>
+            <button onClick={() => { resetCourseForm(); setShowCourseForm(true); }} disabled={showCourseForm} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+              ➕ إضافة كورس جديد
+            </button>
+          </div>
+
+          {showCourseForm && (
+            <form onSubmit={handleSaveCourse} style={{ backgroundColor: '#f1f5f9', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #cbd5e1' }}>
+              <h4 style={{ marginTop: 0, color: '#2d3d52' }}>{editingCourseId ? '✏️ تعديل كورس' : '✨ إضافة كورس'}</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                <input type="text" placeholder="عنوان الكورس" value={title} onChange={e => setTitle(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <select value={instructor} onChange={e => setInstructor(e.target.value)} required style={selectStyle} aria-label="المدرب">
+                  <option value="">{trainers.length === 0 ? 'لا يوجد مدربون — أضف مدرباً أولاً من تبويب «المدربين»' : 'اختر المدرب'}</option>
+                  {instructor && !trainers.some(t => t.name === instructor) && <option value={instructor}>{instructor} (غير موجود في المدربين)</option>}
+                  {trainers.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                </select>
+                <input type="text" placeholder="المدة (مثال: 4 أسابيع)" value={duration} onChange={e => setDuration(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <select value={level} onChange={e => setLevel(e.target.value)} required style={selectStyle} aria-label="المستوى">
+                  {!COURSE_LEVELS.includes(level) && level && <option value={level}>{level}</option>}
+                  {COURSE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <select value={category} onChange={e => setCategory(e.target.value)} required style={selectStyle} aria-label="التصنيف">
+                  {COURSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
+                <input type="number" placeholder="نسبة الإنجاز %" value={progress} onChange={e => setProgress(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="number" min="0" placeholder="رسوم الكورس (جنيه)" value={fee} onChange={e => setFee(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <label style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', color: '#475569', gap: '3px' }}>
+                  موعد بدء الكورس
+                  <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)} style={{ padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </label>
+                <label style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', color: '#475569', gap: '3px' }}>
+                  موعد انتهاء الكورس
+                  <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)} style={{ padding: '7px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                </label>
+                <input type="text" placeholder="المواعيد (مثال: السبت والثلاثاء 8 مساءً)" value={schedule} onChange={e => setSchedule(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              </div>
+              <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 15 }}>
+                {imageUrl ? <img src={imageUrl} alt="معاينة صورة الكورس" style={{ width: 96, height: 64, objectFit: 'cover', borderRadius: 8, border: '1px solid #cbd5e1' }} /> : <div style={{ width: 96, height: 64, borderRadius: 8, border: '1px dashed #cbd5e1', color: '#94a3b8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 12 }}>بدون صورة</div>}
+                <input type="text" dir="ltr" placeholder="رابط صورة الكورس (اختياري)" value={imageUrl} onChange={e => setImageUrl(e.target.value)} style={{ flex: 1, minWidth: 180, padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <label style={{ backgroundColor: '#8b44db', color: '#fff', padding: '8px 14px', borderRadius: 6, cursor: uploadingImage ? 'wait' : 'pointer', fontWeight: 'bold', fontSize: 13, opacity: uploadingImage ? 0.7 : 1 }}>
+                  {uploadingImage ? 'جاري الرفع...' : '📷 رفع صورة'}
+                  <input type="file" accept="image/*" disabled={uploadingImage} onChange={e => { handleImageFile(e.target.files?.[0]); e.target.value = ''; }} style={{ display: 'none' }} />
+                </label>
+                {imageUrl && <button type="button" onClick={() => setImageUrl('')} style={{ background: '#e2e8f0', border: 'none', padding: '8px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>إزالة</button>}
+              </div>
+              <textarea placeholder="وصف الكورس..."  value={description} onChange={e => setDescription(e.target.value)} rows={2} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
+              <textarea placeholder="أداء المتدربين..." value={performance} onChange={e => setPerformance(e.target.value)} rows={2} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
+              <div style={{ display: 'flex', gap: '20px', flexWrap: 'wrap', marginBottom: '15px', fontSize: '14px' }}>
+                <label><input type="checkbox" checked={isActive} onChange={e => setIsActive(e.target.checked)} /> نشط حالياً</label>
+                <label><input type="checkbox" checked={month1} onChange={e => setMonth1(e.target.checked)} /> الشهر 1</label>
+                <label><input type="checkbox" checked={month2} onChange={e => setMonth2(e.target.checked)} /> الشهر 2</label>
+                <label><input type="checkbox" checked={month3} onChange={e => setMonth3(e.target.checked)} /> الشهر 3</label>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" disabled={isSavingCourse} style={{ backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ</button>
+                <button type="button" onClick={resetCourseForm} style={{ backgroundColor: '#94a3b8', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>إلغاء</button>
+              </div>
+            </form>
+          )}
+
+          {loadingCourses ? <p>جاري التحميل...</p> : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
+                    <th style={{ padding: '10px' }}>العنوان</th>
+                    <th style={{ padding: '10px' }}>المدرب</th>
+                    <th style={{ padding: '10px' }}>التصنيف</th>
+                    <th style={{ padding: '10px' }}>الرسوم</th>
+                    <th style={{ padding: '10px' }}>البدء</th>
+                    <th style={{ padding: '10px' }}>الحالة</th>
+                    <th style={{ padding: '10px' }}>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {courses.map(c => (
+                    <tr key={c.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.title}</td>
+                      <td style={{ padding: '10px' }}>{c.instructor}</td>
+                      <td style={{ padding: '10px', color: '#8b44db' }}>{categoryLabel(c.category)}</td>
+                      <td style={{ padding: '10px' }}>{c.fee ? `${c.fee} ج` : <span style={{ color: '#b45309' }}>غير محدد</span>}</td>
+                      <td style={{ padding: '10px' }}>{c.start_date || <span style={{ color: '#b45309' }}>غير محدد</span>}</td>
+                      <td style={{ padding: '10px' }}>{c.is_active ? <span style={{ color: '#10b981' }}>نشط</span> : 'غير نشط'}</td>
+                      <td style={{ padding: '10px', display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleEditCourseClick(c)} style={{ backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>تعديل</button>
+                        <button onClick={() => handleDeleteCourse(c.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>حذف</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 2. الفعاليات (Events Management) */}
+      {activeTab === 'events' && (
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0, color: '#2d3d52', fontSize: '16px' }}>📢 إدارة الفعاليات والأنشطة</h3>
+            <button onClick={() => { resetEventForm(); setShowEventForm(true); }} disabled={showEventForm} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+              ➕ إضافة فعالية جديدة
+            </button>
+          </div>
+
+          {showEventForm && (
+            <form onSubmit={handleSaveEvent} style={{ backgroundColor: '#f1f5f9', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #cbd5e1' }}>
+              <h4 style={{ marginTop: 0, color: '#2d3d52' }}>{editingEventId ? '✏️ تعديل فعالية' : '✨ إضافة فعالية جديدة'}</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                <input type="text" placeholder="عنوان الفعالية" value={eventTitle} onChange={e => setEventTitle(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="اسم المتحدث" value={eventSpeaker} onChange={e => setEventSpeaker(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="datetime-local" value={eventDate} onChange={e => setEventDate(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="مكان انعقاد الفعالية" value={eventLocation} onChange={e => setEventLocation(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="التصنيف (مثال: general)" value={eventCategory} onChange={e => setEventCategory(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              </div>
+              <textarea placeholder="وصف تفصيلي للفعالية..." value={eventDescription} onChange={e => setEventDescription(e.target.value)} rows={3} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
+              <div style={{ marginBottom: '15px', fontSize: '14px' }}>
+                <label><input type="checkbox" checked={eventIsActive} onChange={e => setEventIsActive(e.target.checked)} /> فعالية نشطة / معروضة</label>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" disabled={isSavingEvent} style={{ backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>حفظ الفعالية</button>
+                <button type="button" onClick={resetEventForm} style={{ backgroundColor: '#94a3b8', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>إلغاء</button>
+              </div>
+            </form>
+          )}
+
+          {loadingEvents ? <p>جاري التحميل...</p> : eventsList.length === 0 ? (
+            <p style={{ color: '#666', fontSize: '13px' }}>لا توجد فعاليات مسجلة حتى الآن.</p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
+                    <th style={{ padding: '10px' }}>العنوان</th>
+                    <th style={{ padding: '10px' }}>المتحدث</th>
+                    <th style={{ padding: '10px' }}>التاريخ والوقت</th>
+                    <th style={{ padding: '10px' }}>المكان</th>
+                    <th style={{ padding: '10px' }}>الحالة</th>
+                    <th style={{ padding: '10px' }}>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {eventsList.map(ev => (
+                    <tr key={ev.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{ev.title}</td>
+                      <td style={{ padding: '10px' }}>{ev.speaker || '-'}</td>
+                      <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>
+                        {ev.event_date ? new Date(ev.event_date).toLocaleString('ar-EG') : '-'}
+                      </td>
+                      <td style={{ padding: '10px' }}>{ev.location || '-'}</td>
+                      <td style={{ padding: '10px' }}>
+                        {ev.is_active ? <span style={{ color: '#10b981' }}>نشط</span> : 'غير نشط'}
+                      </td>
+                      <td style={{ padding: '10px', display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleEditEventClick(ev)} style={{ backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>تعديل</button>
+                        <button onClick={() => handleDeleteEvent(ev.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>حذف</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 3. المدربين */}
+      {activeTab === 'trainers' && (
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '15px' }}>
+            <h3 style={{ margin: 0, color: '#2d3d52', fontSize: '16px' }}>إدارة المدربين</h3>
+            <button onClick={() => { resetTrainerForm(); setShowTrainerForm(true); }} disabled={showTrainerForm} style={{ backgroundColor: '#10b981', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', fontSize: '13px' }}>
+              ➕ إضافة مدرب
+            </button>
+          </div>
+
+          {showTrainerForm && (
+            <form onSubmit={handleSaveTrainer} style={{ backgroundColor: '#f1f5f9', padding: '20px', borderRadius: '8px', marginBottom: '20px', border: '1px solid #cbd5e1' }}>
+              <h4 style={{ marginTop: 0, color: '#2d3d52' }}>{editingTrainerId ? '✏️ تعديل مدرب' : '✨ إضافة مدرب'}</h4>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '15px' }}>
+                <input type="text" placeholder="اسم المدرب" value={trainerName} onChange={e => setTrainerName(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="التخصص" value={trainerSpecialty} onChange={e => setTrainerSpecialty(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="سنوات الخبرة" value={trainerExp} onChange={e => setTrainerExp(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="email" placeholder="البريد الإلكتروني" value={trainerEmail} onChange={e => setTrainerEmail(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="الهاتف" value={trainerPhone} onChange={e => setTrainerPhone(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <input type="text" placeholder="رابط الصورة (URL)" value={trainerImage} onChange={e => setTrainerImage(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+              </div>
+              <textarea placeholder="نبذة تعريفية..." value={trainerBio} onChange={e => setTrainerBio(e.target.value)} rows={2} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
+              <div style={{ marginBottom: '15px' }}>
+                <label><input type="checkbox" checked={trainerIsActive} onChange={e => setTrainerIsActive(e.target.checked)} /> مدرب نشط</label>
+              </div>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button type="submit" disabled={isSavingTrainer} style={{ backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>حفظ</button>
+                <button type="button" onClick={resetTrainerForm} style={{ backgroundColor: '#94a3b8', color: '#fff', border: 'none', padding: '8px 15px', borderRadius: '6px', cursor: 'pointer' }}>إلغاء</button>
+              </div>
+            </form>
+          )}
+
+          {loadingTrainers ? <p>جاري التحميل...</p> : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '14px' }}>
+                <thead>
+                  <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
+                    <th style={{ padding: '10px' }}>الاسم</th>
+                    <th style={{ padding: '10px' }}>التخصص</th>
+                    <th style={{ padding: '10px' }}>الخبرة</th>
+                    <th style={{ padding: '10px' }}>الإجراءات</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {trainers.map(t => (
+                    <tr key={t.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{t.name}</td>
+                      <td style={{ padding: '10px', color: '#8b44db' }}>{t.specialty}</td>
+                      <td style={{ padding: '10px' }}>{t.experience_years || '-'}</td>
+                      <td style={{ padding: '10px', display: 'flex', gap: '8px' }}>
+                        <button onClick={() => handleEditTrainerClick(t)} style={{ backgroundColor: '#3b82f6', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>تعديل</button>
+                        <button onClick={() => handleDeleteTrainer(t.id)} style={{ backgroundColor: '#ef4444', color: '#fff', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer' }}>حذف</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 4. التسجيلات */}
+      {activeTab === 'registrations' && (
+        <RegistrationsManager
+          courses={courses.map((c) => ({ title: c.title, fee: c.fee, start_date: c.start_date, end_date: c.end_date, schedule: c.schedule }))}
+          onCountChange={setRegCount}
+        />
+      )}
+
+      {activeTab === 'agenda' && (
+        <AgendaPlanner courses={courses.map((c) => ({ title: c.title, start_date: c.start_date, end_date: c.end_date }))} />
+      )}
+
+      {/* 5. قنوات التواصل */}
+      {activeTab === 'contact_channels' && (
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ marginTop: 0, color: '#2d3d52', fontSize: '16px' }}>إدارة بيانات التواصل والروابط</h3>
+          <form onSubmit={handleSaveContact} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginTop: '15px' }}>
+            {Object.keys(contactData).map((key) => (
+              <div key={key}>
+                <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', textTransform: 'capitalize', fontSize: '13px' }}>{key}:</label>
+                <input 
+                  type="text" 
+                  value={(contactData as any)[key] || ''} 
+                  onChange={e => setContactData({...contactData, [key]: e.target.value})} 
+                  style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} 
+                />
+              </div>
+            ))}
+            <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
+              <button type="submit" disabled={isSavingContact} style={{ backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
+                حفظ بيانات التواصل
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* 6. الرسائل الواردة */}
+      {activeTab === 'messages' && (
+        <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
+          <h3 style={{ marginTop: 0, color: '#2d3d52', fontSize: '16px' }}>رسائل استفسارات العملاء</h3>
+          {messages.length === 0 ? <p style={{ fontSize: '13px', color: '#666' }}>لا توجد رسائل.</p> : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              {messages.map(m => (
+                <div key={m.id} style={{ backgroundColor: '#f1f5f9', padding: '15px', borderRadius: '8px', borderRight: '4px solid #8b44db' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '5px' }}>
+                    <strong>{m.sender_name} ({m.sender_email})</strong>
+                    <span style={{ fontSize: '12px', color: '#64748b' }}>{new Date(m.created_at).toLocaleString('ar-EG')}</span>
+                  </div>
+                  <p style={{ margin: 0, fontSize: '14px' }}>{m.message}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* 7. الإحصائيات المتقدمة */}
+      {activeTab === 'analytics' && (
+        <div>
+          <h3 style={{ color: '#2d3d52', marginBottom: '15px', fontSize: '18px' }}>لوحة دراسة وتقييم الأداء والزوار</h3>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #10b981', textAlign: 'center' }}>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>الزوار النشطون (الآن)</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#10b981' }}>{activeVisitorsCount} زائر نشط</span>
+            </div>
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #3b82f6', textAlign: 'center' }}>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>إجمالي الزيارات المسجلة</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#3b82f6' }}>{totalVisitors} زيارة</span>
+            </div>
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #8b44db', textAlign: 'center' }}>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>ساعة الذروة للموقع</span>
+              <span style={{ fontSize: '18px', fontWeight: 'bold', color: '#8b44db' }}>{peakHours}</span>
+            </div>
+            <div style={{ backgroundColor: '#fff', padding: '18px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: '5px solid #f59e0b', textAlign: 'center' }}>
+              <span style={{ color: '#64748b', fontSize: '12px', fontWeight: 'bold', display: 'block', marginBottom: '5px' }}>الكورسات النشطة حالياً</span>
+              <span style={{ fontSize: '20px', fontWeight: 'bold', color: '#f59e0b' }}>{activeCoursesCount} كورس</span>
+            </div>
+          </div>
+
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#2d3d52', fontSize: '15px' }}>📂 توزيع الكورسات حسب التصنيفات</h4>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', fontSize: '14px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                  <span>الكورسات الرقمية (Digital):</span>
+                  <strong style={{ color: '#3b82f6' }}>{categoryStats.digital}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                  <span>الكورسات المهنية (Professional):</span>
+                  <strong style={{ color: '#10b981' }}>{categoryStats.professional}</strong>
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px', backgroundColor: '#f8fafc', borderRadius: '6px' }}>
+                  <span>كورسات مهارات الحياة (Life):</span>
+                  <strong style={{ color: '#8b44db' }}>{categoryStats.life}</strong>
+                </div>
+              </div>
+            </div>
+
+            <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+              <h4 style={{ margin: '0 0 15px 0', color: '#2d3d52', fontSize: '15px' }}>💡 ملاحظات وتوصيات النظام</h4>
+              <p style={{ color: '#475569', fontSize: '13px', lineHeight: '1.6', margin: 0 }}>
+                النظام يعمل بكفاءة عالية على قاعدة البيانات المخصصة (Schema: mharaty). تأكد دائماً من تحديث بيانات قنوات التواصل ومتابعة استفسارات العملاء أولاً باول لضمان أعلى معدل تفاعل على المنصة.
+              </p>
+            </div>
+          </div>
+
+          <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
+            <h4 style={{ margin: '0 0 15px 0', color: '#2d3d52', fontSize: '15px' }}>📈 أحدث تفاعلات وحركات الزوار على المنصة</h4>
+            {analyticsList.length === 0 ? (
+              <p style={{ color: '#666', fontSize: '13px' }}>لا توجد بيانات إحصائية مسجلة حتى الآن.</p>
+            ) : (
+              <div style={{ overflowX: 'auto' }}>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ backgroundColor: '#2d3d52', color: '#fff', textAlign: 'right' }}>
+                      <th style={{ padding: '10px' }}>مسار الصفحة (Path)</th>
+                      <th style={{ padding: '10px' }}>نوع الجهاز</th>
+                      <th style={{ padding: '10px' }}>المتصفح</th>
+                      <th style={{ padding: '10px' }}>اسم المستخدم / زائر</th>
+                      <th style={{ padding: '10px' }}>وقت الزيارة</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {analyticsList.slice(0, 10).map((item, index) => (
+                      <tr key={item.id || index} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                        <td style={{ padding: '10px', fontWeight: 'bold', color: '#3b82f6' }}>{item.page_path || '/'}</td>
+                        <td style={{ padding: '10px' }}>{item.device_type || 'غير معروف'}</td>
+                        <td style={{ padding: '10px' }}>{item.browser || 'غير معروف'}</td>
+                        <td style={{ padding: '10px' }}>{item.user_name || 'زائر عام'}</td>
+                        <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>{new Date(item.created_at).toLocaleString('ar-EG')}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+    </div>
+  );
+}

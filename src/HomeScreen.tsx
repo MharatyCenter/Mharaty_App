@@ -5,6 +5,7 @@ import { useToast } from './ui/Toast';
 import { useIsMobile } from './ui/useIsMobile';
 import BottomNav from './ui/BottomNav';
 import FeaturedCourses from './ui/FeaturedCourses';
+import MyCourses from './ui/MyCourses';
 import { centerWhatsAppLink } from './lib/center';
 
 interface Course {
@@ -296,6 +297,8 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
             {centerWhatsAppLink('x') && <a href={centerWhatsAppLink('مرحباً، أريد الاستفسار عن كورسات مركز مهاراتي')} target="_blank" rel="noopener noreferrer" style={{ background: '#25d366', color: '#fff', padding: '10px 18px', borderRadius: 10, fontWeight: 'bold', textDecoration: 'none', fontSize: 14 }}>💬 استفسر عبر واتساب</a>}
           </div>
         </section>
+
+        <MyCourses />
 
         <FeaturedCourses courses={activeCourses} loading={loadingHome} onOpen={(c) => onNavigateToCategory(c.category)} />
 

@@ -3,6 +3,16 @@ import { supabase } from './supabaseClient';
 import { uploadCourseImage } from './lib/images';
 import { downloadFullBackup } from './lib/backup';
 import RegistrationsManager from './RegistrationsManager';
+import AgendaPlanner from './ui/AgendaPlanner';
+
+const COURSE_LEVELS = ['مبتدئ', 'متوسط', 'خبرة'];
+const COURSE_CATEGORIES: { value: string; label: string }[] = [
+  { value: 'digital', label: 'مهارات رقمية' },
+  { value: 'professional', label: 'مهارات مهنية' },
+  { value: 'life', label: 'مهارات حياتية' },
+];
+const categoryLabel = (v: string) => COURSE_CATEGORIES.find((c) => c.value === v)?.label ?? v;
+const selectStyle: React.CSSProperties = { padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', backgroundColor: '#fff' };
 
 interface Course {
   id: number;
@@ -88,7 +98,7 @@ interface AdminDashboardProps {
 export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDashboardProps) {
   const handleBack = onBack || onBackToHome || (() => {});
   
-  const [activeTab, setActiveTab] = useState<'courses' | 'events' | 'trainers' | 'registrations' | 'contact_channels' | 'messages' | 'analytics'>('courses');
+  const [activeTab, setActiveTab] = useState<'courses' | 'events' | 'trainers' | 'registrations' | 'agenda' | 'contact_channels' | 'messages' | 'analytics'>('courses');
   const [statusMessage, setStatusMessage] = useState<{ text: string; type: 'success' | 'error' } | null>(null);
 
   // حالات الكورسات
@@ -164,6 +174,22 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   const [activeVisitorsCount, setActiveVisitorsCount] = useState<number>(0);
   const [categoryStats, setCategoryStats] = useState({ digital: 0, professional: 0, life: 0 });
   const [peakHours, setPeakHours] = useState<string>('جاري التحليل...');
+
+  // حذف سجل تفاعلات الزوار: الكل أو الأقدم من 30 يوماً
+  const clearVisitorLog = async (mode: 'all' | 'old') => {
+    const msg = mode === 'all'
+      ? 'سيتم حذف كل سجل تفاعلات الزوار نهائياً ولا يمكن التراجع. هل أنت متأكد؟'
+      : 'سيتم حذف سجل الزوار الأقدم من 30 يوماً. هل أنت متأكد؟';
+    if (!window.confirm(msg)) return;
+    const cutoff = mode === 'all' ? new Date(Date.now() + 86400000).toISOString() : new Date(Date.now() - 30 * 86400000).toISOString();
+    const { data, error } = await supabase.schema('mharaty').from('site_analytics_advanced').delete().lt('created_at', cutoff).select('id');
+    if (error) { alert('تعذر الحذف: ' + error.message); return; }
+    if (!data || data.length === 0) { alert('لا توجد سجلات للحذف (أو لا تملك صلاحية الحذف).'); return; }
+    const left = analyticsList.filter((i) => new Date(i.created_at).toISOString() >= cutoff);
+    setAnalyticsList(left); setTotalVisitors(left.length);
+    alert(`تم حذف ${data.length} سجل.`);
+  };
+
   const [activeCoursesCount, setActiveCoursesCount] = useState<number>(0);
 
   useEffect(() => {
@@ -200,7 +226,6 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
       supabase.schema('mharaty').from('trainers').select('*').order('id', { ascending: false }).then(({ data }) => {
         if (data) {
           setTrainers(data);
-          if (data.length > 0 && !instructor) setInstructor(data[0].name);
         }
         setLoadingTrainers(false);
       }),
@@ -501,6 +526,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
           { id: 'events', label: `📢 الفعاليات (${eventsList.length})` },
           { id: 'trainers', label: `👨‍🏫 المدربين (${trainers.length})` },
           { id: 'registrations', label: `📝 المتدربون (${regCount})` },
+          { id: 'agenda', label: '🗓️ الأجندة' },
           { id: 'contact_channels', label: '📞 قنوات التواصل' },
           { id: 'messages', label: `💬 الرسائل (${messages.length})` },
           { id: 'analytics', label: '📊 الإحصائيات المتقدمة' },
@@ -530,10 +556,19 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
               <h4 style={{ marginTop: 0, color: '#2d3d52' }}>{editingCourseId ? '✏️ تعديل كورس' : '✨ إضافة كورس'}</h4>
               <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '15px', marginBottom: '15px' }}>
                 <input type="text" placeholder="عنوان الكورس" value={title} onChange={e => setTitle(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                <input type="text" placeholder="اسم المدرب" value={instructor} onChange={e => setInstructor(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <select value={instructor} onChange={e => setInstructor(e.target.value)} required style={selectStyle} aria-label="المدرب">
+                  <option value="">{trainers.length === 0 ? 'لا يوجد مدربون — أضف مدرباً أولاً من تبويب «المدربين»' : 'اختر المدرب'}</option>
+                  {instructor && !trainers.some(t => t.name === instructor) && <option value={instructor}>{instructor} (غير موجود في المدربين)</option>}
+                  {trainers.map(t => <option key={t.id} value={t.name}>{t.name}</option>)}
+                </select>
                 <input type="text" placeholder="المدة (مثال: 4 أسابيع)" value={duration} onChange={e => setDuration(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                <input type="text" placeholder="المستوى" value={level} onChange={e => setLevel(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
-                <input type="text" placeholder="التصنيف (digital, professional, life)" value={category} onChange={e => setCategory(e.target.value)} required style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
+                <select value={level} onChange={e => setLevel(e.target.value)} required style={selectStyle} aria-label="المستوى">
+                  {!COURSE_LEVELS.includes(level) && level && <option value={level}>{level}</option>}
+                  {COURSE_LEVELS.map(l => <option key={l} value={l}>{l}</option>)}
+                </select>
+                <select value={category} onChange={e => setCategory(e.target.value)} required style={selectStyle} aria-label="التصنيف">
+                  {COURSE_CATEGORIES.map(c => <option key={c.value} value={c.value}>{c.label}</option>)}
+                </select>
                 <input type="number" placeholder="نسبة الإنجاز %" value={progress} onChange={e => setProgress(Number(e.target.value))} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 <input type="number" min="0" placeholder="رسوم الكورس (جنيه)" value={fee} onChange={e => setFee(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
                 <label style={{ display: 'flex', flexDirection: 'column', fontSize: '12px', color: '#475569', gap: '3px' }}>
@@ -589,7 +624,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                     <tr key={c.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
                       <td style={{ padding: '10px', fontWeight: 'bold' }}>{c.title}</td>
                       <td style={{ padding: '10px' }}>{c.instructor}</td>
-                      <td style={{ padding: '10px', color: '#8b44db' }}>{c.category}</td>
+                      <td style={{ padding: '10px', color: '#8b44db' }}>{categoryLabel(c.category)}</td>
                       <td style={{ padding: '10px' }}>{c.fee ? `${c.fee} ج` : <span style={{ color: '#b45309' }}>غير محدد</span>}</td>
                       <td style={{ padding: '10px' }}>{c.start_date || <span style={{ color: '#b45309' }}>غير محدد</span>}</td>
                       <td style={{ padding: '10px' }}>{c.is_active ? <span style={{ color: '#10b981' }}>نشط</span> : 'غير نشط'}</td>
@@ -747,6 +782,10 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
         />
       )}
 
+      {activeTab === 'agenda' && (
+        <AgendaPlanner courses={courses.map((c) => ({ title: c.title, start_date: c.start_date, end_date: c.end_date }))} />
+      )}
+
       {/* 5. قنوات التواصل */}
       {activeTab === 'contact_channels' && (
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
@@ -844,7 +883,13 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
           </div>
 
           <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)' }}>
-            <h4 style={{ margin: '0 0 15px 0', color: '#2d3d52', fontSize: '15px' }}>📈 أحدث تفاعلات وحركات الزوار على المنصة</h4>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8, marginBottom: 15 }}>
+              <h4 style={{ margin: 0, color: '#2d3d52', fontSize: '15px' }}>📈 أحدث تفاعلات وحركات الزوار على المنصة</h4>
+              <div style={{ display: 'flex', gap: 6 }}>
+                <button type="button" onClick={() => clearVisitorLog('old')} style={{ padding: '7px 12px', borderRadius: 8, border: '1px solid #fca5a5', background: '#fff', color: '#b91c1c', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>🗑️ حذف الأقدم من 30 يوماً</button>
+                <button type="button" onClick={() => clearVisitorLog('all')} style={{ padding: '7px 12px', borderRadius: 8, border: 'none', background: '#b91c1c', color: '#fff', fontWeight: 700, fontSize: 12, cursor: 'pointer' }}>🗑️ حذف كل السجل</button>
+              </div>
+            </div>
             {analyticsList.length === 0 ? (
               <p style={{ color: '#666', fontSize: '13px' }}>لا توجد بيانات إحصائية مسجلة حتى الآن.</p>
             ) : (

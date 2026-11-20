@@ -39,7 +39,7 @@ begin
     course_title, student_name, national_id, phone, email, address, training_type,
     education, workplace, job_title, status, notes, client_id, created_at, status_updated_at
   ) values (
-    left(p->>'course_title', 300), left(p->>'student_name', 300), left(p->>'national_id', 30), left(p->>'phone', 30),
+    left(p->>'course_title', 300), left(p->>'student_name', 300), nullif(left(p->>'national_id', 30), ''), nullif(left(p->>'phone', 30), ''),
     nullif(left(p->>'email', 300), ''), nullif(left(p->>'address', 300), ''), nullif(left(p->>'training_type', 100), ''),
     nullif(left(p->>'education', 300), ''), nullif(left(p->>'workplace', 300), ''), nullif(left(p->>'job_title', 300), ''),
     v_status, nullif(left(p->>'notes', 1000), ''), left(p->>'client_id', 100),
