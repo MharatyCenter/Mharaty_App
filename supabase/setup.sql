@@ -270,3 +270,6 @@ alter table mharaty.agenda_items enable row level security;
 drop policy if exists "admin manage" on mharaty.agenda_items;
 create policy "admin manage" on mharaty.agenda_items for all to authenticated using (true) with check (true);
 grant select, insert, update, delete on mharaty.agenda_items to authenticated;
+
+-- صور الفعاليات
+alter table mharaty.events add column if not exists image_urls text[] not null default '{}';

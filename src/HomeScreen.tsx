@@ -6,6 +6,7 @@ import { useIsMobile } from './ui/useIsMobile';
 import BottomNav from './ui/BottomNav';
 import FeaturedCourses from './ui/FeaturedCourses';
 import MyCourses from './ui/MyCourses';
+import ImageLightbox from './ui/ImageLightbox';
 import { centerWhatsAppLink } from './lib/center';
 
 interface Course {
@@ -32,6 +33,7 @@ interface EventItem {
   icon: string;
   border_color: string;
   bg_color: string;
+  image_urls?: string[] | null;
 }
 
 interface ContactInfo {
@@ -63,6 +65,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
   const [activeCourses, setActiveCourses] = useState<Course[]>([]);
   const [planCourses, setPlanCourses] = useState<Course[]>([]);
   const [eventsList, setEventsList] = useState<EventItem[]>([]);
+  const [lightbox, setLightbox] = useState<{ images: string[]; start: number } | null>(null);
 
   const [isQuarterPlanOpen, setIsQuarterPlanOpen] = useState(true);
   const [isEventsOpen, setIsEventsOpen] = useState(true);
@@ -416,9 +419,17 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
               {eventsList.map((item) => (
                 <div key={item.id} style={{ backgroundColor: '#fff', padding: '16px', borderRadius: '10px', boxShadow: '0 2px 6px rgba(0,0,0,0.04)', borderRight: `5px solid ${item.border_color || '#f59e0b'}`, display: 'flex', gap: '12px', alignItems: 'flex-start' }}>
                   <span style={{ fontSize: '24px', backgroundColor: item.bg_color || '#fef3c7', padding: '8px', borderRadius: '8px' }}>{item.icon || '🎓'}</span>
-                  <div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
                     <h4 style={{ margin: '0 0 6px 0', color: '#2d3d52', fontSize: '15px' }}>{item.title}</h4>
                     <p style={{ color: '#666', fontSize: '13px', margin: 0, lineHeight: '1.5' }}>{item.description}</p>
+                    {item.image_urls && item.image_urls.length > 0 && (
+                      <div style={{ display: 'flex', gap: 6, marginTop: 10, overflowX: 'auto', paddingBottom: 4 }}>
+                        {item.image_urls.map((u, i) => (
+                          <img key={u} src={u} alt={item.title} loading="lazy" onClick={() => { setLightbox({ images: item.image_urls as string[], start: i }); }}
+                            style={{ width: item.image_urls!.length === 1 ? '100%' : 96, height: item.image_urls!.length === 1 ? 150 : 72, objectFit: 'cover', borderRadius: 8, cursor: 'zoom-in', flex: '0 0 auto' }} />
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </div>
               ))}
@@ -427,6 +438,8 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
         )}
 
       </main>
+
+      <ImageLightbox images={lightbox?.images ?? []} start={lightbox ? lightbox.start : null} onClose={() => setLightbox(null)} />
 
       {/* نافذة التواصل معنا */}
       {showContactModal && (

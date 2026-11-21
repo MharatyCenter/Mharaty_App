@@ -44,6 +44,7 @@ interface EventItem {
   category: string | null;
   is_active: boolean | null;
   speaker: string | null;
+  image_urls?: string[] | null;
   created_at: string;
 }
 
@@ -133,6 +134,8 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   const [showEventForm, setShowEventForm] = useState(false);
   const [editingEventId, setEditingEventId] = useState<number | null>(null);
   const [isSavingEvent, setIsSavingEvent] = useState(false);
+  const [eventImages, setEventImages] = useState<string[]>([]);
+  const [uploadingEventImages, setUploadingEventImages] = useState(false);
 
   const [eventTitle, setEventTitle] = useState('');
   const [eventDescription, setEventDescription] = useState('');
@@ -366,6 +369,19 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
   };
 
   // دوال إدارة الفعاليات (Events)
+  const handleEventImages = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    setUploadingEventImages(true);
+    const added: string[] = []; const failed: string[] = [];
+    for (const f of Array.from(files)) {
+      try { added.push(await uploadCourseImage(f)); } catch (err) { failed.push(f.name + ': ' + (err instanceof Error ? err.message : String(err))); }
+    }
+    if (added.length) setEventImages((p) => [...p, ...added]);
+    setUploadingEventImages(false);
+    if (failed.length) showNotification('تعذر رفع: ' + failed.join(' | '), 'error');
+    else showNotification(`✅ تم رفع ${added.length} صورة. اضغط «حفظ الفعالية» لتثبيتها.`, 'success');
+  };
+
   const handleSaveEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingEvent(true);
@@ -376,7 +392,8 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
       location: eventLocation,
       category: eventCategory,
       speaker: eventSpeaker,
-      is_active: eventIsActive
+      is_active: eventIsActive,
+      image_urls: eventImages,
     };
 
     const query = editingEventId
@@ -404,6 +421,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
     setEventCategory(ev.category || 'general');
     setEventSpeaker(ev.speaker || '');
     setEventIsActive(ev.is_active ?? false);
+    setEventImages(ev.image_urls ?? []);
     setShowEventForm(true);
   };
 
@@ -427,6 +445,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
     setEventCategory('general');
     setEventSpeaker('');
     setEventIsActive(false);
+    setEventImages([]);
     setShowEventForm(false);
   };
 
@@ -662,6 +681,25 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                 <input type="text" placeholder="التصنيف (مثال: general)" value={eventCategory} onChange={e => setEventCategory(e.target.value)} style={{ padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1' }} />
               </div>
               <textarea placeholder="وصف تفصيلي للفعالية..." value={eventDescription} onChange={e => setEventDescription(e.target.value)} rows={3} style={{ width: '100%', padding: '8px', borderRadius: '6px', border: '1px solid #cbd5e1', marginBottom: '15px' }}></textarea>
+              <div style={{ marginBottom: '15px' }}>
+                <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center', marginBottom: 8 }}>
+                  <label style={{ background: '#fff', border: '1px dashed #94a3b8', padding: '8px 14px', borderRadius: 6, cursor: uploadingEventImages ? 'wait' : 'pointer', fontSize: 13, fontWeight: 'bold', color: '#2d3d52' }}>
+                    {uploadingEventImages ? '⏳ جاري رفع الصور...' : '🖼️ إضافة صورة أو أكثر'}
+                    <input type="file" accept="image/*" multiple disabled={uploadingEventImages} onChange={e => { handleEventImages(e.target.files); e.target.value = ''; }} style={{ display: 'none' }} />
+                  </label>
+                  <span style={{ fontSize: 12, color: '#64748b' }}>{eventImages.length > 0 ? `${eventImages.length} صورة` : 'اختياري'}</span>
+                </div>
+                {eventImages.length > 0 && (
+                  <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                    {eventImages.map((u, i) => (
+                      <div key={u} style={{ position: 'relative' }}>
+                        <img src={u} alt="" style={{ width: 80, height: 80, objectFit: 'cover', borderRadius: 8, border: '1px solid #cbd5e1' }} />
+                        <button type="button" aria-label="حذف الصورة" onClick={() => setEventImages((p) => p.filter((_, j) => j !== i))} style={{ position: 'absolute', top: -6, left: -6, width: 22, height: 22, borderRadius: '50%', border: 'none', background: '#ef4444', color: '#fff', cursor: 'pointer', fontSize: 12, lineHeight: 1 }}>✕</button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
               <div style={{ marginBottom: '15px', fontSize: '14px' }}>
                 <label><input type="checkbox" checked={eventIsActive} onChange={e => setEventIsActive(e.target.checked)} /> فعالية نشطة / معروضة</label>
               </div>
@@ -690,7 +728,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                 <tbody>
                   {eventsList.map(ev => (
                     <tr key={ev.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
-                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{ev.title}</td>
+                      <td style={{ padding: '10px', fontWeight: 'bold' }}>{ev.title}{ev.image_urls && ev.image_urls.length > 0 ? <span style={{ fontWeight: 'normal', fontSize: 11, color: '#64748b' }}> 🖼️×{ev.image_urls.length}</span> : null}</td>
                       <td style={{ padding: '10px' }}>{ev.speaker || '-'}</td>
                       <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>
                         {ev.event_date ? new Date(ev.event_date).toLocaleString('ar-EG') : '-'}
