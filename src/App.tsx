@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import HomeScreen from './HomeScreen';
 import CoursesScreen from './CoursesScreen';
 import TrainerPage from './Trainer';
+import AboutScreen from './AboutScreen';
 import AdminDashboardScreen from './AdminDashboardScreen';
 import { supabase } from './supabaseClient';
 import { useToast } from './ui/Toast';
@@ -9,7 +10,7 @@ import { dropLayers, useBackClose } from './ui/useBackClose';
 import WhatsAppFab from './ui/WhatsAppFab';
 import { useIsMobile } from './ui/useIsMobile';
 
-type Screen = 'home' | 'courses' | 'trainer' | 'admin';
+type Screen = 'home' | 'courses' | 'trainer' | 'about' | 'admin';
 
 export default function App() {
   const toast = useToast();
@@ -111,6 +112,10 @@ export default function App() {
     return <TrainerPage onBack={handleBackToHome} />;
   }
 
+  if (currentScreen === 'about') {
+    return (<><AboutScreen onBack={handleBackToHome} /><WhatsAppFab /></>);
+  }
+
   if (currentScreen === 'admin' && isAdminLoggedIn) {
     return <AdminDashboardScreen onBack={handleAdminLogout} />;
   }
@@ -124,6 +129,7 @@ export default function App() {
       <HomeScreen
         onNavigateToCategory={handleViewCategory}
         onNavigateToTrainer={() => navigate('trainer')}
+        onNavigateToAbout={() => navigate('about')}
         onOpenAdminLogin={handleOpenAdmin}
       />
 

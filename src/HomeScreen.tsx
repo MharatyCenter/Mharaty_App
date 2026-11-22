@@ -52,10 +52,11 @@ interface ContactInfo {
 interface HomeScreenProps {
   onNavigateToCategory: (category: 'digital' | 'professional' | 'life') => void;
   onNavigateToTrainer?: () => void;
+  onNavigateToAbout?: () => void;
   onOpenAdminLogin?: () => void;
 }
 
-function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogin }: HomeScreenProps) {
+function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onNavigateToAbout, onOpenAdminLogin }: HomeScreenProps) {
   const toast = useToast();
   const isMobile = useIsMobile();
   const [activeTab, setActiveTab] = useState('home');
@@ -297,6 +298,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
           <p style={{ fontSize: '14px', opacity: 0.9, margin: 0, lineHeight: '1.5' }}>طوّر مهاراتك اليوم وافتح آفاقاً جديدة لمستقبلك المهني من خلال دورات تدريبية متخصصة.</p>
           <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
             <button onClick={() => document.getElementById('mh-catalog')?.scrollIntoView({ behavior: 'smooth' })} style={{ background: '#fff', color: 'var(--mh-navy)', border: 'none', padding: '10px 20px', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer', fontSize: 14 }}>📚 تصفح الكورسات وسجّل</button>
+            {onNavigateToAbout && <button onClick={onNavigateToAbout} style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', border: '1px solid rgba(255,255,255,0.5)', padding: '10px 18px', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer', fontSize: 14 }}>ℹ️ من نحن</button>}
             {centerWhatsAppLink('x') && <a href={centerWhatsAppLink('مرحباً، أريد الاستفسار عن كورسات مركز مهاراتي')} target="_blank" rel="noopener noreferrer" style={{ background: '#25d366', color: '#fff', padding: '10px 18px', borderRadius: 10, fontWeight: 'bold', textDecoration: 'none', fontSize: 14 }}>💬 استفسر عبر واتساب</a>}
           </div>
         </section>
@@ -564,6 +566,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onOpenAdminLogi
             { key: 'home', icon: '🏠', label: 'الرئيسية', onClick: () => { setActiveTab('home'); window.scrollTo({ top: 0, behavior: 'smooth' }); } },
             { key: 'courses', icon: '📚', label: 'الكورسات', onClick: () => { setActiveTab('courses'); document.getElementById('mh-catalog')?.scrollIntoView({ behavior: 'smooth' }); } },
             { key: 'trainers', icon: '👨‍🏫', label: 'المدربون', onClick: () => onNavigateToTrainer && onNavigateToTrainer() },
+            { key: 'about', icon: 'ℹ️', label: 'من نحن', onClick: () => onNavigateToAbout && onNavigateToAbout() },
             { key: 'contact', icon: '✉️', label: 'تواصل معنا', onClick: () => setShowContactModal(true) },
           ]}
         />
