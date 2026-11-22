@@ -273,3 +273,6 @@ grant select, insert, update, delete on mharaty.agenda_items to authenticated;
 
 -- صور الفعاليات
 alter table mharaty.events add column if not exists image_urls text[] not null default '{}';
+
+-- صورة قسم التواصل
+alter table mharaty.contact_info add column if not exists image_url text;

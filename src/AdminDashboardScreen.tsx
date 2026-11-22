@@ -71,6 +71,7 @@ interface ContactInfo {
   website: string;
   address: string;
   working_hours: string;
+  image_url?: string | null;
 }
 
 interface ContactMessage {
@@ -166,9 +167,10 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
 
   // حالات التواصل والرسائل والإحصائيات المتقدمة
   const [contactData, setContactData] = useState<ContactInfo>({
-    phone: '', whatsapp: '', facebook: '', youtube: '', instagram: '', telegram: '', email: '', website: '', address: '', working_hours: ''
+    phone: '', whatsapp: '', facebook: '', youtube: '', instagram: '', telegram: '', email: '', website: '', address: '', working_hours: '', image_url: ''
   });
   const [isSavingContact, setIsSavingContact] = useState(false);
+  const [uploadingContactImage, setUploadingContactImage] = useState(false);
   const [messages, setMessages] = useState<ContactMessage[]>([]);
   
   // الإحصائيات المتقدمة
@@ -504,13 +506,27 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
     setShowTrainerForm(false);
   };
 
+  const handleContactImage = async (file: File | undefined) => {
+    if (!file) return;
+    setUploadingContactImage(true);
+    try {
+      const url = await uploadCourseImage(file);
+      setContactData((d) => ({ ...d, image_url: url }));
+      showNotification('✅ تم رفع الصورة. اضغط «حفظ بيانات التواصل» لتثبيتها.', 'success');
+    } catch (err) {
+      showNotification('تعذر رفع الصورة: ' + (err instanceof Error ? err.message : String(err)), 'error');
+    } finally {
+      setUploadingContactImage(false);
+    }
+  };
+
   const handleSaveContact = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSavingContact(true);
-    const { error } = await supabase.schema('mharaty').from('contact_info').upsert({ id: 1, ...contactData });
+    const { error } = await supabase.schema('mharaty').from('contact_info').upsert({ id: 1, ...contactData, image_url: contactData.image_url || null });
     setIsSavingContact(false);
     if (error) {
-      showNotification('خطأ في حفظ التواصل', 'error');
+      showNotification('خطأ في حفظ التواصل: ' + error.message + (/image_url/.test(error.message) ? ' (شغّل ملف migration_contact_image.sql في Supabase)' : ''), 'error');
     } else {
       showNotification('✅ تم تحديث قنوات التواصل بنجاح', 'success');
     }
@@ -829,7 +845,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
         <div style={{ backgroundColor: '#fff', padding: '20px', borderRadius: '12px', boxShadow: '0 2px 8px rgba(0,0,0,0.05)' }}>
           <h3 style={{ marginTop: 0, color: '#2d3d52', fontSize: '16px' }}>إدارة بيانات التواصل والروابط</h3>
           <form onSubmit={handleSaveContact} style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px', marginTop: '15px' }}>
-            {Object.keys(contactData).map((key) => (
+            {Object.keys(contactData).filter((key) => key !== 'image_url').map((key) => (
               <div key={key}>
                 <label style={{ display: 'block', marginBottom: '5px', fontWeight: 'bold', textTransform: 'capitalize', fontSize: '13px' }}>{key}:</label>
                 <input 
@@ -840,6 +856,17 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                 />
               </div>
             ))}
+            <div style={{ gridColumn: '1 / -1', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12 }}>
+              <div style={{ fontWeight: 'bold', fontSize: 13, marginBottom: 8 }}>🖼️ صورة قسم التواصل (تظهر في نافذة «تواصل معنا»)</div>
+              {contactData.image_url && <img src={contactData.image_url} alt="" style={{ width: '100%', maxWidth: 360, height: 160, objectFit: 'cover', borderRadius: 8, display: 'block', marginBottom: 8, border: '1px solid #cbd5e1' }} />}
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <label style={{ background: '#fff', border: '1px dashed #94a3b8', padding: '8px 14px', borderRadius: 6, cursor: uploadingContactImage ? 'wait' : 'pointer', fontSize: 13, fontWeight: 'bold', color: '#2d3d52' }}>
+                  {uploadingContactImage ? '⏳ جاري الرفع...' : contactData.image_url ? 'تغيير الصورة' : 'رفع صورة'}
+                  <input type="file" accept="image/*" disabled={uploadingContactImage} onChange={e => { handleContactImage(e.target.files?.[0]); e.target.value = ''; }} style={{ display: 'none' }} />
+                </label>
+                {contactData.image_url && <button type="button" onClick={() => setContactData((d) => ({ ...d, image_url: '' }))} style={{ background: '#e2e8f0', border: 'none', padding: '8px 12px', borderRadius: 6, cursor: 'pointer', fontSize: 13 }}>إزالة (تعود الصورة الافتراضية)</button>}
+              </div>
+            </div>
             <div style={{ gridColumn: '1 / -1', marginTop: '10px' }}>
               <button type="submit" disabled={isSavingContact} style={{ backgroundColor: '#2d3d52', color: '#fff', border: 'none', padding: '12px 25px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
                 حفظ بيانات التواصل

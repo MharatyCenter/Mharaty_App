@@ -47,7 +47,10 @@ interface ContactInfo {
   website?: string;
   address?: string;
   working_hours?: string;
+  image_url?: string | null;
 }
+
+const DEFAULT_CONTACT_IMAGE = 'https://emgczjqpdwujbsfhjbtk.supabase.co/storage/v1/object/sign/trainers/Place.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV85OGU5N2MzOS01OGYzLTQwNjktOGQyMi02NmMyMTM1NzRlYjQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJ0cmFpbmVycy9QbGFjZS5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0OTAwMDY1LCJleHAiOjE5NDI1ODAwNjV9.huQEJImsWW13MpfnVb9yiD94W8J0Dppkq2Yqz0b8PRs';
 
 interface HomeScreenProps {
   onNavigateToCategory: (category: 'digital' | 'professional' | 'life') => void;
@@ -465,7 +468,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onNavigateToAbo
                 🏫 نظرة على قاعة التدريب بمقر المركز
               </div>
               <img 
-                src="https://emgczjqpdwujbsfhjbtk.supabase.co/storage/v1/object/sign/trainers/Place.png?token=eyJraWQiOiJzdG9yYWdlLXVybC1zaWduaW5nLWtleV85OGU5N2MzOS01OGYzLTQwNjktOGQyMi02NmMyMTM1NzRlYjQiLCJhbGciOiJIUzI1NiJ9.eyJ1cmwiOiJ0cmFpbmVycy9QbGFjZS5wbmciLCJzY29wZSI6ImRvd25sb2FkIiwiaWF0IjoxNzg0OTAwMDY1LCJleHAiOjE5NDI1ODAwNjV9.huQEJImsWW13MpfnVb9yiD94W8J0Dppkq2Yqz0b8PRs" 
+                src={contactInfo?.image_url || DEFAULT_CONTACT_IMAGE} 
                 alt="قاعة التدريب" 
                 style={{ width: '100%', height: '180px', objectFit: 'cover', display: 'block' }} 
               />
