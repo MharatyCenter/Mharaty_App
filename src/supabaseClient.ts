@@ -13,4 +13,8 @@ export const supabase = createClient(supabaseUrl, supabaseKey, {
   db: {
     schema: 'mharaty',
   },
+  // جلسة المشرف تُحفظ في sessionStorage: تنتهي بإغلاق التطبيق/المتصفح، فيُطلب البريد وكلمة المرور من جديد
+  auth: {
+    storage: typeof window !== 'undefined' ? window.sessionStorage : undefined,
+  },
 });

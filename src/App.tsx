@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import HomeScreen from './HomeScreen';
 import CoursesScreen from './CoursesScreen';
 import TrainerPage from './Trainer';
@@ -43,6 +43,22 @@ export default function App() {
     window.addEventListener('popstate', onPop);
     return () => window.removeEventListener('popstate', onPop);
   }, []);
+
+  // أمان المشرف: الخروج من شاشة الإدارة بأي طريقة (رجوع/إغلاق) ينهي الجلسة، وكذلك الخمول 20 دقيقة
+  const prevScreen = useRef<Screen>('home');
+  useEffect(() => {
+    if (prevScreen.current === 'admin' && currentScreen !== 'admin') void supabase.auth.signOut();
+    prevScreen.current = currentScreen;
+  }, [currentScreen]);
+  useEffect(() => {
+    if (currentScreen !== 'admin') return;
+    let t = window.setTimeout(out, 20 * 60 * 1000);
+    function out() { void supabase.auth.signOut(); }
+    const reset = () => { window.clearTimeout(t); t = window.setTimeout(out, 20 * 60 * 1000); };
+    const evs = ['pointerdown', 'keydown', 'scroll'] as const;
+    evs.forEach((e) => window.addEventListener(e, reset, { passive: true }));
+    return () => { window.clearTimeout(t); evs.forEach((e) => window.removeEventListener(e, reset)); };
+  }, [currentScreen]);
 
   const navigate = (screen: Screen) => {
     history.pushState({ screen }, '');

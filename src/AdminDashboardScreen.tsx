@@ -89,6 +89,7 @@ interface AnalyticsData {
   device_type: string;
   browser: string;
   user_name?: string;
+  ip_address?: string | null;
   created_at: string;
 }
 
@@ -966,6 +967,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                       <th style={{ padding: '10px' }}>نوع الجهاز</th>
                       <th style={{ padding: '10px' }}>المتصفح</th>
                       <th style={{ padding: '10px' }}>اسم المستخدم / زائر</th>
+                      <th style={{ padding: '10px' }}>عنوان IP</th>
                       <th style={{ padding: '10px' }}>وقت الزيارة</th>
                     </tr>
                   </thead>
@@ -976,6 +978,7 @@ export default function AdminDashboardScreen({ onBack, onBackToHome }: AdminDash
                         <td style={{ padding: '10px' }}>{item.device_type || 'غير معروف'}</td>
                         <td style={{ padding: '10px' }}>{item.browser || 'غير معروف'}</td>
                         <td style={{ padding: '10px' }}>{item.user_name || 'زائر عام'}</td>
+                        <td dir="ltr" style={{ padding: '10px', fontFamily: 'monospace', fontSize: 12, textAlign: 'right' }}>{item.ip_address || '—'}</td>
                         <td style={{ padding: '10px', color: '#64748b', fontSize: '12px' }}>{new Date(item.created_at).toLocaleString('ar-EG')}</td>
                       </tr>
                     ))}

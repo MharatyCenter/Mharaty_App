@@ -276,3 +276,6 @@ alter table mharaty.events add column if not exists image_urls text[] not null d
 
 -- صورة قسم التواصل
 alter table mharaty.contact_info add column if not exists image_url text;
+
+-- عنوان IP للزيارات (انظر migration_visit_ip.sql لتفعيل الـ trigger)
+alter table mharaty.site_analytics_advanced add column if not exists ip_address text;
