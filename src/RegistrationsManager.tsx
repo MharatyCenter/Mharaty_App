@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { isSheetsEnabled, sheetsViewUrl, sendBackfillBatch, sendStatusToSheet, requestSheetToApp } from './lib/sheets';
 import { newId, toWhatsAppNumber } from './lib/validation';
+import { openExternal, saveFile } from './lib/native';
 import { useToast } from './ui/Toast';
 import RegistrationsSummary from './ui/RegistrationsSummary';
 import EditRegistrationModal from './ui/EditRegistrationModal';
@@ -187,7 +188,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
     // نفتح واتساب أولاً (قبل أي await) حتى لا يحجبه المتصفح
     const waUrl = `https://wa.me/${number}?text=${encodeURIComponent(text)}`;
     console.info('[WhatsApp]', kind, waUrl);
-    if (!window.open(waUrl, '_blank', 'noopener,noreferrer')) {
+    if (!openExternal(waUrl)) {
       notify('المتصفح منع فتح واتساب. اسمح بالنوافذ المنبثقة لهذا الموقع ثم أعد المحاولة.', 'error');
     }
 
@@ -363,12 +364,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
       r.course_title, STATUS_META[r.status].label, r.paid_amount, r.notes, new Date(r.created_at).toLocaleString('ar-EG'),
     ]);
     const csv = '﻿' + [header, ...data].map((row) => row.map(esc).join(',')).join('\r\n');
-    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `registrations-${new Date().toISOString().slice(0, 10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
+    void saveFile(new Blob([csv], { type: 'text/csv;charset=utf-8;' }), `registrations-${new Date().toISOString().slice(0, 10)}.csv`);
   };
 
   // ===== الواجهة =====

@@ -7,6 +7,7 @@ import BottomNav from './ui/BottomNav';
 import FeaturedCourses from './ui/FeaturedCourses';
 import MyCourses from './ui/MyCourses';
 import ImageLightbox from './ui/ImageLightbox';
+import SocialLinks from './ui/SocialLinks';
 import { centerWhatsAppLink } from './lib/center';
 
 interface Course {
@@ -304,6 +305,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onNavigateToAbo
             {onNavigateToAbout && <button onClick={onNavigateToAbout} style={{ background: 'rgba(255,255,255,0.18)', color: '#fff', border: '1px solid rgba(255,255,255,0.5)', padding: '10px 18px', borderRadius: 10, fontWeight: 'bold', cursor: 'pointer', fontSize: 14 }}>ℹ️ من نحن</button>}
             {centerWhatsAppLink('x') && <a href={centerWhatsAppLink('مرحباً، أريد الاستفسار عن كورسات مركز مهاراتي')} target="_blank" rel="noopener noreferrer" style={{ background: '#25d366', color: '#fff', padding: '10px 18px', borderRadius: 10, fontWeight: 'bold', textDecoration: 'none', fontSize: 14 }}>💬 استفسر عبر واتساب</a>}
           </div>
+          <SocialLinks info={contactInfo} dark />
         </section>
 
         <MyCourses />

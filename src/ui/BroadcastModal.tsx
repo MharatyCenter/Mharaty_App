@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react';
 import { useBackClose } from './useBackClose';
 import { toWhatsAppNumber } from '../lib/validation';
+import { openExternal } from '../lib/native';
 import { STATUS_META, STATUS_ORDER } from '../lib/messages';
 import type { RegStatus } from '../lib/messages';
 
@@ -41,7 +42,7 @@ export default function BroadcastModal({ open, rows, courseTitles, onClose }: { 
   const toggleOne = (k: string) => setUnchecked((p) => { const n = new Set(p); if (n.has(k)) n.delete(k); else n.add(k); return n; });
   const personText = (p: Person) => text.split('{name}').join(p.name.trim().split(/\s+/)[0] || p.name);
   const url = (p: Person) => `https://wa.me/${p.number}?text=${encodeURIComponent(personText(p))}`;
-  const send = (p: Person) => { window.open(url(p), '_blank', 'noopener'); setSent((s) => new Set(s).add(p.key)); };
+  const send = (p: Person) => { openExternal(url(p)); setSent((s) => new Set(s).add(p.key)); };
   const next = chosen.find((p) => !sent.has(p.key));
 
   return (

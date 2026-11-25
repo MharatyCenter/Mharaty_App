@@ -1,0 +1,51 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:        # زر "Run workflow" يدوياً
+  push:
+    branches: [main, master]
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build web app
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+          VITE_SHEETS_WEBHOOK_URL: ${{ secrets.VITE_SHEETS_WEBHOOK_URL }}
+          VITE_SHEETS_SECRET: ${{ secrets.VITE_SHEETS_SECRET }}
+          VITE_SHEETS_VIEW_URL: ${{ secrets.VITE_SHEETS_VIEW_URL }}
+          VITE_CENTER_WHATSAPP: ${{ secrets.VITE_CENTER_WHATSAPP }}
+        run: npm run build
+
+      - name: Generate app icons from assets/logo.png
+        run: npx --yes @capacitor/assets@3 generate --android --iconBackgroundColor '#ffffff' --iconBackgroundColorDark '#ffffff' --splashBackgroundColor '#2d3d52' --splashBackgroundColorDark '#2d3d52'
+
+      - name: Sync web build into Android project
+        run: npx cap sync android
+
+      - name: Build signed release APK
+        working-directory: android
+        run: ./gradlew assembleRelease -PmhVersionCode=${{ github.run_number }} -PmhVersionName=1.0.${{ github.run_number }}
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: mharaty-apk
+          path: android/app/build/outputs/apk/release/*.apk

@@ -1,3 +1,4 @@
+import { saveFile } from './native';
 import { supabase } from '../supabaseClient';
 
 const TABLES = ['courses', 'course_registrations', 'message_templates', 'events', 'contact_info', 'contact_messages'] as const;
@@ -15,11 +16,6 @@ export async function downloadFullBackup(): Promise<{ ok: boolean; counts: Recor
   }
   if (failed.length === TABLES.length) return { ok: false, counts, failed };
   const payload = { app: 'mharaty', exported_at: new Date().toISOString(), tables: data };
-  const url = URL.createObjectURL(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `mharaty-backup-${new Date().toISOString().slice(0, 10)}.json`;
-  a.click();
-  URL.revokeObjectURL(url);
+  await saveFile(new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' }), `mharaty-backup-${new Date().toISOString().slice(0, 10)}.json`);
   return { ok: true, counts, failed };
 }

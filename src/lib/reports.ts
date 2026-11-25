@@ -1,6 +1,7 @@
 import { STATUS_META } from './messages';
 import type { RegStatus } from './messages';
 import { buildXlsx } from './xlsx';
+import { isNative, saveFile } from './native';
 import type { Cell, SheetRow } from './xlsx';
 
 export interface ReportReg { course_title: string; student_name: string; phone?: string | null; national_id?: string | null; status: RegStatus; paid_amount?: number | null }
@@ -57,8 +58,7 @@ export function downloadXlsx(r: Report) {
   });
   if (r.grand) rows.push({ cells: r.grand, style: 'section' });
   const blob = buildXlsx(r.title, rows, r.head.map((h) => (h === 'الاسم' ? 30 : h === 'م' ? 6 : 18)));
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `${r.title}-${new Date().toISOString().slice(0, 10)}.xlsx`; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  void saveFile(blob, `${r.title}-${new Date().toISOString().slice(0, 10)}.xlsx`);
 }
 
 const h = (s: unknown) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
@@ -75,6 +75,10 @@ table{width:100%;border-collapse:collapse;margin-bottom:6px;page-break-inside:au
 th{background:#2d3d52;color:#fff;padding:5px 6px;border:1px solid #2d3d52;text-align:right}td{padding:4px 6px;border:1px solid #cbd5e1}td.n{text-align:center}
 tr.tot td{background:#e2e8f0;font-weight:bold}.grand{margin-top:14px;padding:8px;border:2px solid #2d3d52;font-weight:bold}.grand span{display:inline-block;margin-left:18px}
 </style></head><body><div class="hd"><h1>مركز مهاراتي للتدريب</h1><p><b>${h(r.title)}</b></p><p>${h(r.subtitle)}</p><p>تاريخ الإصدار: ${h(today())}</p></div>${body}${r.grand ? `<div class="grand">${r.grand.filter((v) => v !== '' && v != null).map((v, i) => `<span>${i === 0 ? '' : ['الرسوم', 'المدفوع', 'المتبقي'][i - 1] ? ['الرسوم: ', 'المدفوع: ', 'المتبقي: '][i - 1] : ''}${h(v)}</span>`).join('')}</div>` : ''}</body></html>`;
+  if (isNative()) { // نافذة الطباعة غير متاحة في APK: نشارك ملف HTML يُفتح في المتصفح ويُحفظ PDF من قائمة الطباعة
+    void saveFile(new Blob([html], { type: 'text/html;charset=utf-8' }), `${r.title}-${new Date().toISOString().slice(0, 10)}.html`);
+    return;
+  }
   const f = document.createElement('iframe');
   f.style.cssText = 'position:fixed;right:0;bottom:0;width:0;height:0;border:0';
   document.body.appendChild(f);

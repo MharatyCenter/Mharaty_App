@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">مهاراتي</string>
+    <string name="title_activity_main">مهاراتي</string>
+    <string name="package_name">com.mharaty.app</string>
+    <string name="custom_url_scheme">com.mharaty.app</string>
+</resources>
