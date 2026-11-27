@@ -5,6 +5,9 @@ import App from './App.tsx'
 import ErrorBoundary from './ui/ErrorBoundary.tsx'
 import { ToastProvider } from './ui/Toast.tsx'
 import OfflineBanner from './ui/OfflineBanner.tsx'
+import { initPixel } from './lib/pixel'
+
+initPixel()
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

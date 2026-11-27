@@ -1,3 +1,4 @@
+import { trackPixel } from './lib/pixel';
 import React, { useEffect, useRef, useState } from 'react';
 import { supabase } from './supabaseClient';
 import { useToast } from './ui/Toast';
@@ -177,6 +178,7 @@ export default function CoursesScreen({ currentCategory, onBack }: CoursesScreen
       const sheetSent = await sendRegistrationToSheet(record);
 
       if (dbOk || sheetSent) {
+        trackPixel('Lead', { content_name: record.course_title });
         try {
           const { nationalId: _n, trainingType: _t, ...toRemember } = form;
           void _n; void _t;
