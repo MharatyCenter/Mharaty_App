@@ -1,0 +1,14 @@
+/// <reference types="vite/client" />
+
+interface ImportMetaEnv {
+  readonly VITE_SUPABASE_URL: string;
+  readonly VITE_SUPABASE_ANON_KEY: string;
+  readonly VITE_SHEETS_WEBHOOK_URL?: string;
+  readonly VITE_SHEETS_SECRET?: string;
+  readonly VITE_SHEETS_VIEW_URL?: string;
+  readonly VITE_FB_PIXEL_ID?: string;
+}
+
+interface ImportMeta {
+  readonly env: ImportMetaEnv;
+}
