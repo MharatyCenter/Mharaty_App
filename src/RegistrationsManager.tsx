@@ -82,25 +82,25 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
   const [editing, setEditing] = useState<RegistrationRow | null>(null);
   const [showBroadcast, setShowBroadcast] = useState(false);
   const [showReports, setShowReports] = useState(false);
-  const [syncBusy, setSyncBusy] = useState<'' | 'from' | 'to'>('');
+  const [syncBusy, setSyncBusy] = useState<'' | 'both'>('');
   const [syncProgress, setSyncProgress] = useState('');
 
   const courseMap = useMemo(() => new Map(courses.map((c) => [norm(c.title), c])), [courses]);
   const courseOf = (title: string) => courseMap.get(norm(title));
 
-  const load = useCallback(async (silent = false): Promise<number | null> => {
+  const load = useCallback(async (silent = false): Promise<RegistrationRow[] | null> => {
     if (!silent) setLoading(true);
     setLoadError('');
     const [regs, tpls] = await Promise.all([
       supabase.schema('mharaty').from('course_registrations').select('*').order('created_at', { ascending: false }),
       supabase.schema('mharaty').from('message_templates').select('*'),
     ]);
-    let count: number | null = null;
+    let fresh: RegistrationRow[] | null = null;
     if (regs.error) {
       setLoadError(regs.error.message);
     } else {
-      count = (regs.data || []).length;
-      setRows((regs.data || []).map((r) => ({ ...r, status: (r.status as RegStatus) || 'new' })));
+      fresh = (regs.data || []).map((r) => ({ ...r, status: (r.status as RegStatus) || 'new' })) as RegistrationRow[];
+      setRows(fresh);
     }
     if (!tpls.error && tpls.data && tpls.data.length > 0) {
       setTemplates((prev) => {
@@ -112,7 +112,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
       });
     }
     setLoading(false);
-    return count;
+    return fresh;
   }, []);
 
   useEffect(() => { load(); }, [load]);
@@ -304,51 +304,55 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
 
   // ===== المزامنة مع Google Sheet =====
   // من الشيت إلى التطبيق: السكربت ينقل الصفوف المكتوبة يدوياً إلى قاعدة بيانات التطبيق، ثم نحدّث القائمة
-  const syncFromSheet = async () => {
-    setSyncBusy('from');
+  // مراجعة شاملة: (1) من التطبيق إلى الشيت: يضيف ما ينقص الشيت، (2) من الشيت إلى التطبيق: يضيف الصفوف الجديدة ويحدّث الحالات (الشيت هو المرجع)
+  const reviewSync = async () => {
+    if (!isSheetsEnabled) { notify('رابط الشيت غير مضبوط في الإعدادات (VITE_SHEETS_WEBHOOK_URL).', 'error'); return; }
+    if (!window.confirm('سيتم مراجعة الشيت والتطبيق معاً:\n• ما ينقص الشيت يُضاف إليه من التطبيق.\n• ما ينقص التطبيق يُضاف إليه من الشيت.\n• حالة كل متدرب في التطبيق تُحدَّث لتطابق الشيت.\nمن هو موجود في الطرفين لا يتكرر. متابعة؟')) return;
+    setSyncBusy('both');
     try {
-      const before = rows.length;
-      const sent = await requestSheetToApp();
-      if (!sent) { notify('تعذر الاتصال بالشيت. تحقق من الإنترنت ومن رابط الشيت في الإعدادات.', 'error'); return; }
-      const after = await load(true);
-      if (after === null) { notify('تمت المزامنة لكن تعذر تحديث القائمة. اضغط «تحديث».', 'error'); return; }
-      const diff = after - before;
-      notify(diff > 0 ? `✅ تم نقل ${diff} متدرب من الشيت إلى التطبيق` : 'لم يُنقل أي صف جديد. الصف يلزمه فقط: الاسم + الكورس، ولا يُنقل إن كان عمود «المعرّف» (المخفي) ممتلئاً. إن كان الشيت جديداً فتأكد أنك حدّثت Sync.gs وأنشأت نسخة نشر جديدة، أو شغّل الدالة syncNewRowsToApp من Apps Script لترى سبب التخطي.', diff > 0 ? 'success' : 'error');
-    } finally {
-      setSyncBusy('');
-    }
-  };
+      const beforeStatus = new Map(rows.map((r) => [String(r.id), r.status]));
+      const beforeCount = rows.length;
 
-  // من التطبيق إلى الشيت: نرسل كل المتدربين على دفعات، والشيت يتخطى من هو موجود عنده
-  const syncToSheet = async () => {
-    if (rows.length === 0) { notify('لا يوجد متدربون في التطبيق لنقلهم.', 'error'); return; }
-    if (!window.confirm(`سيتم إرسال ${rows.length} متدرب من التطبيق إلى الشيت. من هو موجود بالفعل في الشيت يُتخطى تلقائياً ولن يتكرر. متابعة؟`)) return;
-    setSyncBusy('to');
-    try {
-      // كل متدرب يحتاج معرّفاً ليتزامن تغيير حالته مع الشيت لاحقاً
+      // 1) من التطبيق إلى الشيت
+      setSyncProgress('1/3');
       const list: RegistrationRow[] = [];
       for (const r of rows) {
         let cid = r.client_id;
         if (!cid) {
           cid = newId();
           const { error } = await supabase.schema('mharaty').from('course_registrations').update({ client_id: cid }).eq('id', r.id);
-          if (error) { notify('تعذر تجهيز بيانات «' + r.student_name + '»: ' + error.message, 'error'); continue; }
-          setRows((prev) => prev.map((x) => (x.id === r.id ? { ...x, client_id: cid } : x)));
+          if (error) continue;
         }
         list.push({ ...r, client_id: cid });
       }
-      let done = 0, failedBatches = 0;
+      let failedBatches = 0;
       for (let i = 0; i < list.length; i += 25) {
         const chunk = list.slice(i, i + 25);
-        setSyncProgress(`${Math.min(i + 25, list.length)} / ${list.length}`);
         const ok = await sendBackfillBatch(chunk.map((r) => ({
           id: r.client_id as string, course_title: r.course_title, student_name: r.student_name, national_id: r.national_id ?? '',
           phone: r.phone ?? '', email: r.email ?? '', address: r.address ?? '', training_type: r.training_type ?? '', education: r.education ?? '',
           workplace: r.workplace ?? '', job_title: r.job_title ?? '', status: STATUS_META[r.status].label, notes: r.notes ?? '', created_at: r.created_at,
         })));
-        if (ok) done += chunk.length; else failedBatches += 1;
+        if (!ok) failedBatches += 1;
       }
-      notify(failedBatches ? `أُرسل ${done} من ${list.length}، وفشلت ${failedBatches} دفعة. أعد المحاولة.` : `✅ أُرسل ${done} متدرب إلى الشيت. افتح الشيت للتأكد.`, failedBatches ? 'error' : 'success');
+
+      // 2) من الشيت إلى التطبيق (صفوف جديدة + الحالات)
+      setSyncProgress('2/3');
+      const sent = await requestSheetToApp();
+      if (!sent) { notify('تعذر الاتصال بالشيت. تحقق من الإنترنت ومن رابط الشيت في الإعدادات.', 'error'); return; }
+
+      // 3) نقرأ النتيجة ونعرضها
+      setSyncProgress('3/3');
+      const fresh = await load(true);
+      if (fresh === null) { notify('تمت المراجعة لكن تعذر تحديث القائمة. اضغط «تحديث».', 'error'); return; }
+      const added = Math.max(0, fresh.length - beforeCount);
+      const changed = fresh.filter((r) => beforeStatus.has(String(r.id)) && beforeStatus.get(String(r.id)) !== r.status).length;
+      const parts = [
+        `${added} متدرب جديد من الشيت إلى التطبيق`,
+        `${changed} تغيّرت حالتهم حسب الشيت`,
+        `${list.length} تمت مراجعتهم مع الشيت (من ينقصه أُضيف)`,
+      ];
+      notify(`تمت المراجعة: ${parts.join('، ')}.${failedBatches ? ` ⚠️ فشلت ${failedBatches} دفعة إرسال، أعد المحاولة.` : ''}`, failedBatches ? 'error' : 'success');
     } finally {
       setSyncBusy('');
       setSyncProgress('');
@@ -393,11 +397,8 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
           )}
           {isSheetsEnabled && (
             <>
-              <button onClick={syncFromSheet} disabled={syncBusy !== ''} style={{ ...btn('#0e7490'), opacity: syncBusy ? 0.6 : 1 }}>
-                {syncBusy === 'from' ? '⏳ جاري النقل...' : '⬇️ من الشيت إلى التطبيق'}
-              </button>
-              <button onClick={syncToSheet} disabled={syncBusy !== ''} style={{ ...btn('#b45309'), opacity: syncBusy ? 0.6 : 1 }}>
-                {syncBusy === 'to' ? `⏳ جاري الإرسال ${syncProgress}` : '⬆️ من التطبيق إلى الشيت'}
+              <button onClick={reviewSync} disabled={syncBusy !== ''} style={{ ...btn('#0e7490'), opacity: syncBusy ? 0.6 : 1 }}>
+                {syncBusy ? `⏳ جاري المراجعة ${syncProgress}` : '🔄 مراجعة الشيت والتطبيق'}
               </button>
             </>
           )}

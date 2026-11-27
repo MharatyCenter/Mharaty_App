@@ -30,8 +30,8 @@ function doPost(e) {
     // زر «من الشيت إلى التطبيق» في لوحة المتدربين: ينقل الصفوف المكتوبة يدوياً (له قفله الخاص، فلا نأخذ قفلاً هنا)
     if (data.action === 'sync_to_app') {
       if (typeof syncRows_ !== 'function') return json_({ ok: false, error: 'Sync.gs غير مضاف' });
-      var r = syncRows_(false);
-      return json_({ ok: !r.error, sent: r.sent, duplicate: r.duplicate, skipped: r.skipped.length, failed: r.failed, error: r.error || '' });
+      var r = syncRows_(false, true);
+      return json_({ ok: !r.error, sent: r.sent, duplicate: r.duplicate, skipped: r.skipped.length, failed: r.failed, statusUpdated: r.statusUpdated, error: r.error || '' });
     }
 
     lock = LockService.getScriptLock();
@@ -63,7 +63,9 @@ function doPost(e) {
 function saveRegistration_(data) {
   var name = clean_(data.student_name), phone = clean_(data.phone), course = clean_(data.course_title);
   var nid = clean_(data.national_id);
-  if (!name || !phone || !course || !nid) return { ok: false, error: 'missing fields' };
+  var backfill = data.action === 'backfill';   // نقل من التطبيق: نحفظ الحالة والملاحظات والتاريخ الأصلي
+  // التسجيل الجديد يلزمه الهاتف والرقم القومي، أما النقل من التطبيق (سجلات قديمة) فيكفيه الاسم والكورس
+  if (!name || !course || (!backfill && (!phone || !nid))) return { ok: false, error: 'missing fields' };
 
   var sheet = getSheet_();
 
@@ -72,7 +74,9 @@ function saveRegistration_(data) {
   if (last > 1) {
     var rows = sheet.getRange(2, 1, last - 1, HEADERS.length).getValues();
     for (var i = 0; i < rows.length; i++) {
-      var sameStudent = String(rows[i][2]).replace(/\D/g, '') === nid.replace(/\D/g, '') && clean_(rows[i][10]) === course;
+      var sameStudent = nid
+        ? String(rows[i][2]).replace(/\D/g, '') === nid.replace(/\D/g, '') && clean_(rows[i][10]) === course
+        : clean_(rows[i][1]) === name && clean_(rows[i][10]) === course;   // بلا رقم قومي: نقارن بالاسم + الكورس
       if (rows[i][13] === data.id || sameStudent) {
         // صف كُتب يدوياً بلا معرّف: نربطه بمعرّف التطبيق ليتزامن تغيير الحالة لاحقاً
         if (!String(rows[i][13] || '').trim() && data.id) sheet.getRange(i + 2, 14).setValue(clean_(data.id));
@@ -81,7 +85,6 @@ function saveRegistration_(data) {
     }
   }
 
-  var backfill = data.action === 'backfill';   // نقل من التطبيق: نحفظ الحالة والملاحظات والتاريخ الأصلي
   var created = backfill && data.created_at ? new Date(data.created_at) : new Date();
   if (isNaN(created.getTime())) created = new Date();
   sheet.appendRow([
@@ -184,6 +187,7 @@ function onOpen() {
       .addItem('إعادة إنشاء النموذج (بعد حذف القديم)', 'recreateRegistrationForm')
       .addSeparator()
       .addItem('إرسال الصفوف الجديدة إلى التطبيق الآن', 'syncNewRowsToApp')
+      .addItem('تفعيل مزامنة تغيير الحالة مع التطبيق', 'installStatusTrigger')
       .addItem('تفعيل المزامنة التلقائية (كل 5 دقائق)', 'enableAutoSync')
       .addItem('إيقاف المزامنة التلقائية', 'disableAutoSync')
       .addToUi();
