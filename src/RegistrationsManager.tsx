@@ -64,6 +64,10 @@ const fieldStyle: React.CSSProperties = { padding: '7px 8px', borderRadius: '6px
 const fmtDateTime = (iso?: string | null) => (iso ? new Date(iso).toLocaleString('ar-EG') : '');
 
 const norm = (t?: string | null) => (t ?? '').replace(/\s+/g, ' ').trim();
+// توحيد الحروف العربية للبحث: أ/إ/آ=ا، ى=ي، ة=ه، وحذف التشكيل والتطويل
+const arNorm = (t?: string | null) => (t ?? '').toLowerCase()
+  .replace(/[\u064B-\u0652\u0640]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+  .replace(/\s+/g, ' ').trim();
 
 export default function RegistrationsManager({ courses, onCountChange }: Props) {
   // إشعارات ثابتة أعلى الشاشة (تظهر حتى لو كنت في أسفل القائمة)
@@ -256,15 +260,18 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
   }, [rows, courseMap]);
 
   const filtered = useMemo(() => {
-    const q = search.trim().toLowerCase();
+    const tokens = arNorm(search).split(' ').filter(Boolean);
     return rows.filter((r) => {
       if (statusFilter === 'due') { if (!isDue(r)) return false; }
       else if (statusFilter === 'ended') { if (!isEnded(r)) return false; }
       else if (statusFilter !== 'all' && r.status !== statusFilter) return false;
       if (courseFilter !== 'all' && norm(r.course_title) !== norm(courseFilter)) return false;
-      if (q) {
-        const hay = `${r.student_name} ${r.phone} ${r.national_id ?? ''} ${r.course_title} ${r.email ?? ''}`.toLowerCase();
-        if (!hay.includes(q)) return false;
+      if (tokens.length) {
+        // كل كلمة بحث يجب أن تبدأ بها كلمة من اسم المتدرب (الاسم الأول يكفي)، أو تكون جزءاً من الهاتف/الرقم القومي/البريد
+        const words = arNorm(r.student_name).split(' ');
+        const other = `${r.phone ?? ''} ${r.national_id ?? ''} ${r.email ?? ''}`.toLowerCase();
+        const ok = tokens.every((t) => words.some((w) => w.startsWith(t)) || other.includes(t));
+        if (!ok) return false;
       }
       return true;
     });
@@ -468,7 +475,7 @@ export default function RegistrationsManager({ courses, onCountChange }: Props) 
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '10px', marginBottom: '16px' }}>
-        <input type="search" placeholder="🔍 بحث بالاسم أو الهاتف أو الرقم القومي..." value={search} onChange={(e) => setSearch(e.target.value)} style={fieldStyle} />
+        <input type="search" placeholder="🔍 ابحث باسم المتدرب (يكفي الاسم الأول) أو الهاتف..." value={search} onChange={(e) => setSearch(e.target.value)} style={fieldStyle} />
         <select value={courseFilter} onChange={(e) => setCourseFilter(e.target.value)} style={{ ...fieldStyle, backgroundColor: '#fff' }}>
           <option value="all">كل الكورسات</option>
           {courseTitles.map((t) => <option key={t} value={t}>{t}</option>)}
