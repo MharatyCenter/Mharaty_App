@@ -8,6 +8,7 @@ import FeaturedCourses from './ui/FeaturedCourses';
 import MyCourses from './ui/MyCourses';
 import ImageLightbox from './ui/ImageLightbox';
 import SocialLinks from './ui/SocialLinks';
+import PrivacyPolicy from './ui/PrivacyPolicy';
 import { centerWhatsAppLink } from './lib/center';
 
 interface Course {
@@ -76,6 +77,7 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onNavigateToAbo
   const [isEventsOpen, setIsEventsOpen] = useState(true);
 
   const [showContactModal, setShowContactModal] = useState(false);
+  const [showPrivacy, setShowPrivacy] = useState(false);
   const [contactInfo, setContactInfo] = useState<ContactInfo | null>(null);
 
   const [senderName, setSenderName] = useState('');
@@ -449,6 +451,13 @@ function HomeScreen({ onNavigateToCategory, onNavigateToTrainer, onNavigateToAbo
       <ImageLightbox images={lightbox?.images ?? []} start={lightbox ? lightbox.start : null} onClose={() => setLightbox(null)} />
 
       {/* نافذة التواصل معنا */}
+      {/* تذييل الصفحة: رابط سياسة الخصوصية */}
+      <footer style={{ textAlign: 'center', margin: '28px 0 6px', fontSize: 12, color: '#64748b' }}>
+        <button type="button" onClick={() => setShowPrivacy(true)} style={{ background: 'none', border: 'none', padding: 0, color: '#2d3d52', textDecoration: 'underline', cursor: 'pointer', fontSize: 13, fontWeight: 'bold' }}>🔒 سياسة الخصوصية</button>
+        <div style={{ marginTop: 6 }}>© {new Date().getFullYear()} مهاراتي - مركز التدريب المهاري</div>
+      </footer>
+      <PrivacyPolicy open={showPrivacy} onClose={() => setShowPrivacy(false)} />
+
       {showContactModal && (
         <div style={{ position: 'fixed', top: 0, left: 0, width: '100vw', height: '100vh', backgroundColor: 'rgba(0, 0, 0, 0.6)', backdropFilter: 'blur(4px)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000, padding: '15px' }}>
           <div style={{ backgroundColor: '#fff', padding: '25px', borderRadius: '16px', width: '100%', maxWidth: '480px', boxShadow: '0 10px 30px rgba(0,0,0,0.2)', border: '1px solid #e2e8f0', direction: 'rtl', textAlign: 'right', maxHeight: '90vh', overflowY: 'auto' }}>
